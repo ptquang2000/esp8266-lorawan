@@ -1,0 +1,1 @@
+idf_component_register(SRCS LoraDevice.c LoraUtil.c MacFrame.c MacPayload.c MacCommand.c INCLUDE_DIRS "include" REQUIRES mbedtls)
