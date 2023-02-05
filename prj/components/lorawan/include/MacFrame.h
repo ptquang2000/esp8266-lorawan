@@ -11,13 +11,13 @@
 
 typedef enum FrameType_enum
 {
-	JoinRequest				= 0x000,
-	JoinAccept				= 0x001,
-	UnconfirmedDataUplink	= 0x010,
-	UnconfirmDataDownlink	= 0x011,
-	ConfirmedDataUplink		= 0x100,
-	ConfirmedDataDownlink	= 0x101,
-	Proprietary				= 0x111
+	JoinRequest				= 0b000,
+	JoinAccept				= 0b001,
+	UnconfirmedDataUplink	= 0b010,
+	UnconfirmDataDownlink	= 0b011,
+	ConfirmedDataUplink		= 0b100,
+	ConfirmedDataDownlink	= 0b101,
+	Proprietary				= 0b111
 } FrameType;
 
 typedef struct IMacFrame_struct

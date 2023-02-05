@@ -26,7 +26,7 @@ typedef enum MacCommandCid_enum
 
 typedef struct IMacCommand_struct
 {
-    void (*extract)(void*);
+    void (*extract)();
 } IMacCommand;
 
 typedef struct MacCommand_struct

@@ -77,6 +77,8 @@ typedef struct FrameHeader_struct
 	unsigned char fopts[MAXIMUM_FRAME_OPTIONS_SIZE];
 } FrameHeader;
 
+void FrameHeader_insert_cmd(FrameHeader* fhdr, MacCommand* cmd);
+
 typedef struct MacPayload_struct
 {
 	FrameHeader* fhdr;

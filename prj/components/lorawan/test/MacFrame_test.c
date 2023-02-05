@@ -30,12 +30,13 @@ TEST_CASE("Test Join Request", "[lorawan]")
 	unsigned char join_eui[] = {3, 3, 3, 3, 1, 1, 1, 1};
 	unsigned char dev_eui[] = {2, 2, 2, 2, 4, 4, 4, 4};
 	short int dev_nonce = 772;
-    LoraDevice* device = LoraDevice_create(app_key, join_eui, dev_eui, dev_nonce);
+    LoraDevice* device = LoraDevice_create(app_key, app_key, app_key, app_key, join_eui, dev_eui, dev_nonce);
 
 	JoinRequestFrame* frame = JoinRequestFrame_create(device);
 	frame->_iframe->extract(frame, device->app_key);
 
 	unsigned char expected[] = {0, 3, 3, 3, 3, 1, 1, 1, 1, 2, 2, 2, 2, 4, 4, 4, 4, 4, 3, 12, 81, 205, 202};
+
 	TEST_ASSERT_EQUAL_INT(sizeof(expected), frame->_frame->size);
 	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->_frame->data, sizeof(expected));
 
@@ -45,5 +46,48 @@ TEST_CASE("Test Join Request", "[lorawan]")
 
 TEST_CASE("Test Confirmed Data Uplink", "[lorawan]")
 {
+	unsigned char nwk_skey[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+	unsigned char app_skey[] = {16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
+	unsigned char dev_addr[] = {4, 3, 2, 1};
+	short int fport = 10;
+
+    LoraDevice* device = LoraDevice_create(dev_addr, nwk_skey, app_skey, nwk_skey, nwk_skey, nwk_skey, 0);
+
+	FrameHeader fhdr = {
+		.dev_addr = {4, 3, 2, 1},
+		.is_adr = 0,
+		.is_adr_ack_req = 0,
+		.is_ack = 0,
+		.frame_counter = 0,
+		.is_classB = 0,
+		.fopts_len = 0
+	};
+
+	MacCommand* cmd = DevStatusAns_create(115, 7)->_cmd;
+	FrameHeader_insert_cmd(&fhdr, cmd);
+
+	MacFrame* frame = MacFrame_create(ConfirmedDataUplink, &fhdr);
+
+	unsigned char payload[] = {1, 2, 3, 4};
+	MacPayload_set_app_payload(frame->payload->instance, fport, sizeof(payload), payload);
+	frame->_iframe->extract(frame->instance, device);
+
+	unsigned char expected[] = {128, 4, 3, 2, 1, 3, 0, 0, 6, 115, 7, 10, 226, 100, 212, 247, 225, 23, 210, 192};
+	for (int i = 0; i < sizeof(expected); i++)
+	{
+		printf("%02x ", expected[i]);
+	}
+	printf("\n");
+	for (int i = 0; i < sizeof(expected); i++)
+	{
+		printf("%02x ", frame->data[i]);
+	}
+	printf("\n");
+
+	TEST_ASSERT_EQUAL_INT(sizeof(expected), frame->size);
+	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->data, sizeof(expected));
+
+	DevStatusAns_destroy(cmd->instance);
+	MacFrame_destroy(frame);
 	
 }

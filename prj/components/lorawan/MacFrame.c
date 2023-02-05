@@ -25,7 +25,7 @@ void MacFrame_extract(
 	
 	short int dir = BIT_MASK(frame->type, 1);
 	memset(&block_b0[BLOCK_B_DIR_BYTE], dir, BYTE_SIZE(BLOCK_B_DIR_SIZE)); 
-	memcpy(&block_b0[BLOCK_B_DEV_ADDR_BYTE], device->dev_addr, BYTE_SIZE(BLOCK_B_DEV_ADDR_SIZE)); 
+	memcpy(&block_b0[BLOCK_B_DEV_ADDR_BYTE], payload->fhdr->dev_addr, BYTE_SIZE(BLOCK_B_DEV_ADDR_SIZE)); 
 	memset(&block_b0[BLOCK_B_FCNT_BYTE], payload->fhdr->frame_counter, BYTE_SIZE(BLOCK_B_FCNT_SIZE)); 
 
 	memcpy(pdata, frame->mhdr, BYTE_SIZE(MHDR_SIZE));
@@ -38,6 +38,7 @@ void MacFrame_extract(
 	frame->size += frame->payload->size;
 	pdata += frame->payload->size;
 	MacPayload_destroy(payload);
+
 	memset(&block_b0[BLOCK_B_MESSAGE_BYTE], frame->size, BYTE_SIZE(BLOCK_B_MESSAGE_SIZE)); 
 
 	// TODO: check size < MAXIMUM_MACPAYLOAD_SIZE
@@ -45,7 +46,7 @@ void MacFrame_extract(
 	memcpy(b0_msg, block_b0, BYTE_SIZE(BLOCK_B0_SIZE));
 	memcpy(b0_msg + BLOCK_B0_SIZE, frame->data, BYTE_SIZE(frame->size));
 
-	calculate_mic(device->nwk_skey, b0_msg, frame->size, frame->mic);
+	calculate_mic(device->nwk_skey, b0_msg, BLOCK_B0_SIZE + frame->size, frame->mic);
 	free(b0_msg);
 	
 	memcpy(pdata, frame->mic, BYTE_SIZE(MIC_SIZE));
@@ -96,6 +97,7 @@ MacFrame* MacFrame_create_with_payload(FrameType frame_type, Payload* payload)
 	frame->_iframe = malloc(sizeof(IMacFrame));
 	frame->_iframe->extract = &MacFrame_extract;
 
+	frame->type = frame_type;
 	memset(frame->mhdr, (frame_type << 5) | LORA_WAN_R1, MHDR_SIZE);
 	frame->size = 0;
 

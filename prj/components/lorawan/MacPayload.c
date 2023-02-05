@@ -43,13 +43,23 @@ void Payload_destroy(Payload* payload)
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void FrameHeader_insert_cmd(FrameHeader* fhdr, MacCommand* cmd)
+{
+	cmd->_icmd->extract(cmd->instance);
+	memcpy(fhdr->fopts + fhdr->fopts_len, cmd->data, BYTE_SIZE(cmd->size));
+	fhdr->fopts_len += cmd->size;
+	ESP_ERROR_CHECK(fhdr->fopts_len < 0 || fhdr->fopts_len > 15);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void MacPayload_extract(
 	MacPayload* payload, 
 	LoraDevice* device,
 	short int* pdir)
 {
 	memset(&block_a[BLOCK_A_DIR_BYTE], *pdir, BYTE_SIZE(BLOCK_A_DIR_SIZE)); 
-	memcpy(&block_a[BLOCK_A_DEV_ADDR_BYTE], device->dev_addr, BYTE_SIZE(DEV_ADDR_SIZE)); 
+	memcpy(&block_a[BLOCK_A_DEV_ADDR_BYTE], payload->fhdr->dev_addr, BYTE_SIZE(DEV_ADDR_SIZE)); 
 	memset(&block_a[BLOCK_A_FCNT_BYTE], payload->fhdr->frame_counter, BYTE_SIZE(FRAME_COUNTER_SIZE)); 
 
 	unsigned char* pdata = payload->_payload->data;
@@ -57,10 +67,10 @@ void MacPayload_extract(
 	pdata += DEV_ADDR_SIZE;
 	payload->_payload->size += DEV_ADDR_SIZE;
 	short int fctrl = 	SET_BITS(payload->fhdr->is_adr, 1, FCTRL_ADR_BIT) | 
-						SET_BITS(payload->fhdr->is_adr, 1, FCTRL_ADR_ACK_REQ_BIT) | 
-						SET_BITS(payload->fhdr->is_adr, 1, FCTRL_ACK_BIT) |
-						SET_BITS(payload->fhdr->is_adr, 1, FCTRL_CLASSB_BIT ) |
-						SET_BITS(payload->fhdr->is_adr, FCTRL_FOPTS_LEN_BITS, FCTRL_FOPTS_LEN_OFFSET);
+						SET_BITS(payload->fhdr->is_adr_ack_req, 1, FCTRL_ADR_ACK_REQ_BIT) | 
+						SET_BITS(payload->fhdr->is_ack, 1, FCTRL_ACK_BIT) |
+						SET_BITS(payload->fhdr->is_classB, 1, FCTRL_CLASSB_BIT ) |
+						SET_BITS(payload->fhdr->fopts_len, FCTRL_FOPTS_LEN_BITS, FCTRL_FOPTS_LEN_OFFSET);
 	memset(pdata, fctrl, BYTE_SIZE(FRAME_CONTROL_SIZE));
 	pdata += FRAME_CONTROL_SIZE;
 	payload->_payload->size += FRAME_CONTROL_SIZE;
@@ -76,9 +86,9 @@ void MacPayload_extract(
 	}
 	free(payload->fhdr);
 
-	short int fport = payload->fport[0];
 	if (payload->fport)
 	{
+		short int fport = payload->fport[0];
 		memcpy(pdata, payload->fport, BYTE_SIZE(FRAME_PORT_SIZE));
 		pdata += FRAME_PORT_SIZE;
 		payload->_payload->size += FRAME_PORT_SIZE;
@@ -96,8 +106,8 @@ void MacPayload_extract(
 				pdata[j] = payload->frm_payload[j] ^ block_s[j];
 			}
 			pdata += BLOCK_A_SIZE;
-			payload->_payload->size += BLOCK_A_SIZE;
 		}
+		payload->_payload->size += payload->frm_payload_len;
 	}
 }
 
