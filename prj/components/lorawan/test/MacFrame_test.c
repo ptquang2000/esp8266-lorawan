@@ -18,8 +18,8 @@ TEST_CASE("Test Join Accept", "[lorawan]")
 	frame->_iframe->extract(frame, app_key);
 
 	unsigned char expected[] = {32, 41, 31, 235, 47, 84, 152, 30, 82, 170, 83, 60, 153, 54, 106, 70, 65};
-	TEST_ASSERT_EQUAL_INT(sizeof(expected), frame->size);
-	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->data, sizeof(expected));
+	TEST_ASSERT_EQUAL_INT(sizeof(expected), frame->_frame->size);
+	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->_frame->data, sizeof(expected));
 
 	JoinAcceptFrame_destroy(frame);
 }
@@ -36,8 +36,8 @@ TEST_CASE("Test Join Request", "[lorawan]")
 	frame->_iframe->extract(frame, device->app_key);
 
 	unsigned char expected[] = {0, 3, 3, 3, 3, 1, 1, 1, 1, 2, 2, 2, 2, 4, 4, 4, 4, 4, 3, 12, 81, 205, 202};
-	TEST_ASSERT_EQUAL_INT(sizeof(expected), frame->size);
-	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->data, sizeof(expected));
+	TEST_ASSERT_EQUAL_INT(sizeof(expected), frame->_frame->size);
+	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->_frame->data, sizeof(expected));
 
 	JoinRequestFrame_destroy(frame);
 	LoraDevice_destroy(device);

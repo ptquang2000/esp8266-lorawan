@@ -1,8 +1,7 @@
 #include "LoraUtil.h"
-#include "LorPayload.h"
+#include "MacPayload.h"
 #include "mbedtls/aes.h"
 #include "mbedtls/cmac.h"
-#include "esp_system.h"
 
 
 void calculate_mic(
@@ -14,7 +13,7 @@ void calculate_mic(
 	const mbedtls_cipher_info_t* cipher_info = mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_128_ECB);
 	unsigned char cmac[16];
 	ESP_ERROR_CHECK(mbedtls_cipher_cmac(cipher_info, key, 128, input, len, cmac));
-	memcpy(mic, cmac, sizeof(unsigned char) * MIC_SIZE);
+	memcpy(mic, cmac, BYTE_SIZE(MIC_SIZE));
 }
 
 void aes128_encrypt(

@@ -11,18 +11,18 @@
 
 typedef enum FrameType_enum
 {
-	JOIN_REQUEST				= 0x000,
-	JOIN_ACCEPT					= 0x001,
-	UNCONFIRMED_DATA_UPLINK		= 0x010,
-	UNCONFIRMED_DATA_DOWNLINK	= 0x011,
-	CONFIRMED_DATA_UPLINK		= 0x100,
-	CONFIRMED_DATA_DOWNLINK		= 0x101,
-	PROPRIETARY					= 0x111
+	JoinRequest				= 0x000,
+	JoinAccept				= 0x001,
+	UnconfirmedDataUplink	= 0x010,
+	UnconfirmDataDownlink	= 0x011,
+	ConfirmedDataUplink		= 0x100,
+	ConfirmedDataDownlink	= 0x101,
+	Proprietary				= 0x111
 } FrameType;
 
 typedef struct IMacFrame_struct
 {
-	void (*extract)(void*, unsigned char*);
+	void (*extract)();
 } IMacFrame;
 
 typedef struct MacFrame_struct
@@ -31,6 +31,8 @@ typedef struct MacFrame_struct
 	Payload* payload;
 	unsigned char* mic;
 
+	FrameType type;
+
 	short int size;
 	unsigned char data[MAXIMUM_PHYPAYLOAD_SIZE];
 
@@ -38,8 +40,8 @@ typedef struct MacFrame_struct
 	void* instance;
 } MacFrame;
 
-MacFrame* MacFrame_create(FrameType);
-void MacFrame_destroy(MacFrame*);
+MacFrame* MacFrame_create(FrameType frame_type, FrameHeader* fhdr);
+void MacFrame_destroy(MacFrame* frame);
 
 typedef struct JoinRequestFrame_struct
 {
@@ -50,9 +52,7 @@ typedef struct JoinRequestFrame_struct
 	void* instance;
 } JoinRequestFrame;
 
-JoinRequestFrame* JoinRequestFrame_create(
-	LoraDevice*, 
-	short int);
+JoinRequestFrame* JoinRequestFrame_create(LoraDevice* device);
 void JoinRequestFrame_destroy(JoinRequestFrame* frame);
 
 typedef struct JoinAcceptFrame_struct
@@ -71,6 +71,7 @@ JoinAcceptFrame* JoinAcceptFrame_create(
 	DLSettings* setting, 
 	short int rx_delay, 
 	CFList* cf_list);
+void JoinAcceptFrame_destroy(JoinAcceptFrame* frame);
 
 
 #endif // MAC_FRAME_H

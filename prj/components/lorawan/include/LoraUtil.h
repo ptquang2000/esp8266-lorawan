@@ -1,9 +1,15 @@
 #ifndef LORA_ULTIL_H
 #define LORA_ULTIL_H
 
+#include "stddef.h"
+#include "string.h"
+#include "stdlib.h"
+#include "esp_system.h"
 
-#define BIT_MASK(value, mask) (value & ((1 << mask) - 1))
-#define SET_BITS(value, mask, offset) (BIT_MASK(value, mask) << offset)
+#define BYTE_SIZE(size) (sizeof(unsigned char) * (size))
+#define BIT_MASK(value, mask) ((value) & ((1 << (mask)) - 1))
+#define SET_BITS(value, mask, offset) (BIT_MASK((value), (mask)) << (offset))
+
 
 void calculate_mic(
     unsigned char* key, 

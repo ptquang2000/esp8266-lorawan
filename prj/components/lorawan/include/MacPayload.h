@@ -1,6 +1,9 @@
 #ifndef MAC_PAYLOAD_H
 #define MAC_PAYLOAD_H
 
+#include "MacCommand.h"
+#include "LoraDevice.h"
+
 #define MAXIMUM_MACPAYLOAD_SIZE			250
 #define MHDR_SIZE						1
 #define MIC_SIZE						4
@@ -27,8 +30,10 @@
 #define 	FCTRL_FOPTS_LEN_OFFSET		0
 #define 		FCTRL_FOPTS_LEN_BITS	4
 #define FRAME_COUNTER_SIZE				2
-#define FRAME_OPTIONS_MAX_SIZE			15
-#define FPORT_SIZE						2
+#define MAXIMUM_FRAME_OPTIONS_SIZE		15
+#define FRAME_PORT_SIZE					1
+#define MAXIMUM_FRAME_HEADER_SIZE		(DEV_ADDR_SIZE + FRAME_CONTROL_SIZE + FRAME_COUNTER_SIZE + MAXIMUM_FRAME_OPTIONS_SIZE)
+#define MAXIMUM_FRAME_PAYLOAD_SIZE		(MAXIMUM_PHYPAYLOAD_SIZE - MAXIMUM_FRAME_HEADER_SIZE - MAXIMUM_FRAME_OPTIONS_SIZE)
 
 
 typedef struct CFList_struct
@@ -42,7 +47,7 @@ typedef struct CFList_struct
 
 typedef struct IPayload_struct
 {
-	void (*extract)(void*);
+	void (*extract)();
 } IPayload;
 
 typedef struct Payload_struct
@@ -56,25 +61,45 @@ typedef struct Payload_struct
 
 Payload* Payload_create();
 void Payload_destroy(Payload* payload);
-void Payload_extract(Payload* payload);
+
+typedef struct FrameHeader_struct
+{
+	unsigned char dev_addr[DEV_ADDR_SIZE];
+	
+	short int is_adr;
+	short int is_adr_ack_req;
+	short int is_ack;
+	short int is_classB;
+	short int fopts_len;
+
+	short int frame_counter;
+
+	unsigned char fopts[MAXIMUM_FRAME_OPTIONS_SIZE];
+} FrameHeader;
 
 typedef struct MacPayload_struct
 {
-	unsigned char* fhdr;
+	FrameHeader* fhdr;
 	unsigned char* fport;
 	unsigned char* frm_payload;
+	short int frm_payload_len;
 
-	IPayload* _payload;
+	IPayload* _ipayload;
 	Payload* _payload;
 	void* instance;
 } MacPayload;
 
-MacPayload* MacPayload_create(
-	short int enable_adr,
-	short int fport,
-	short int is_classb,
-	MacCommand* commands, 
-	unsigned char* payload);
+MacPayload* MacPayload_create(FrameHeader* fhdr);
+void MacPayload_destroy(MacPayload* payload);
+void MacPayload_set_app_payload(
+	MacPayload* payload, 
+	short int fport, 
+	int len,
+	unsigned char* app_payload);
+void MacPayload_set_commands_to_payload(
+	MacPayload* payload, 
+	int len, 
+	unsigned char* mac_commands);
 
 typedef struct JoinRequestPayload_struct
 {
@@ -89,7 +114,6 @@ typedef struct JoinRequestPayload_struct
 
 JoinRequestPayload* JoinRequestPayload_create(LoraDevice* device);
 void JoinRequestPayload_destroy(JoinRequestPayload* payload);
-void JoinRequestPayload_extract(JoinRequestPayload* payload);
 
 typedef struct JoinAcceptPayload_struct
 {
@@ -113,7 +137,6 @@ JoinAcceptPayload* JoinAcceptPayload_create(
 	short int rx_delay, 
 	CFList* cf_list);
 void JoinAcceptPayload_destroy(JoinAcceptPayload* payload);
-void JoinAcceptPayload_extract(JoinAcceptPayload* payload);
 
 
 #endif // MAC_PAYLOAD_h

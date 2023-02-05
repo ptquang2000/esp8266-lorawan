@@ -93,12 +93,12 @@ typedef struct DutyCycleReq_struct
     void* instance;
 } DutyCycleReq;
 
-typedef struct DutyCycleReq_struct
+typedef struct DutyCycleAns_struct
 {
     IMacCommand* _icmd;
     MacCommand* _cmd;
     void* instance;
-} DutyCycleReq;
+} DutyCycleAns;
 
 typedef struct RxParamSetupReq_struct
 {
@@ -135,6 +135,9 @@ typedef struct DevStatusAns_struct
     MacCommand* _cmd;
     void* instance;
 } DevStatusAns;
+
+DevStatusAns* DevStatusAns_create(short int battery, short int snr);
+void DevStatusAns_destroy(DevStatusAns* cmd);
 
 typedef struct NewChannelReq_struct
 {
@@ -206,7 +209,7 @@ typedef struct DeviceTimeAns_struct
     IMacCommand* _icmd;
     MacCommand* _cmd;
     void* instance;
-} DeviceTimeAns
+} DeviceTimeAns;
 
 
 #endif // MAC_COMMAND_H
