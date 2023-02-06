@@ -29,9 +29,7 @@ void LoraDevice_send_join_request(LoraDevice* device)
 
 void LoraDevice_destroy(LoraDevice* device)
 {
-	if (device == NULL) return;
 	free(device);
-	device = NULL;
 }
 
 LoraDevice* LoraDevice_create(

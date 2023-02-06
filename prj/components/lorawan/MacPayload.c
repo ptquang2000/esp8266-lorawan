@@ -35,10 +35,8 @@ Payload* Payload_create()
 
 void Payload_destroy(Payload* payload)
 {
-	if (payload == NULL) return;
 	free(payload->_ipayload);
 	free(payload);
-	payload = NULL;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -58,14 +56,11 @@ void MacPayload_extract(
 	LoraDevice* device,
 	short int* pdir)
 {
-	memset(&block_a[BLOCK_A_DIR_BYTE], *pdir, BYTE_SIZE(BLOCK_A_DIR_SIZE)); 
-	memcpy(&block_a[BLOCK_A_DEV_ADDR_BYTE], payload->fhdr->dev_addr, BYTE_SIZE(DEV_ADDR_SIZE)); 
-	memset(&block_a[BLOCK_A_FCNT_BYTE], payload->fhdr->frame_counter, BYTE_SIZE(FRAME_COUNTER_SIZE)); 
-
 	unsigned char* pdata = payload->_payload->data;
 	memcpy(pdata, payload->fhdr->dev_addr, BYTE_SIZE(DEV_ADDR_SIZE));
 	pdata += DEV_ADDR_SIZE;
 	payload->_payload->size += DEV_ADDR_SIZE;
+	
 	short int fctrl = 	SET_BITS(payload->fhdr->is_adr, 1, FCTRL_ADR_BIT) | 
 						SET_BITS(payload->fhdr->is_adr_ack_req, 1, FCTRL_ADR_ACK_REQ_BIT) | 
 						SET_BITS(payload->fhdr->is_ack, 1, FCTRL_ACK_BIT) |
@@ -74,6 +69,7 @@ void MacPayload_extract(
 	memset(pdata, fctrl, BYTE_SIZE(FRAME_CONTROL_SIZE));
 	pdata += FRAME_CONTROL_SIZE;
 	payload->_payload->size += FRAME_CONTROL_SIZE;
+
 	memset(pdata, payload->fhdr->frame_counter, BYTE_SIZE(FRAME_COUNTER_SIZE));
 	pdata += FRAME_COUNTER_SIZE;
 	payload->_payload->size += FRAME_COUNTER_SIZE;
@@ -84,7 +80,6 @@ void MacPayload_extract(
 		pdata += payload->fhdr->fopts_len;
 		payload->_payload->size += payload->fhdr->fopts_len;
 	}
-	free(payload->fhdr);
 
 	if (payload->fport)
 	{
@@ -92,10 +87,14 @@ void MacPayload_extract(
 		memcpy(pdata, payload->fport, BYTE_SIZE(FRAME_PORT_SIZE));
 		pdata += FRAME_PORT_SIZE;
 		payload->_payload->size += FRAME_PORT_SIZE;
-		free(payload->fport);
+
+		memset(&block_a[BLOCK_A_DIR_BYTE], *pdir, BYTE_SIZE(BLOCK_A_DIR_SIZE)); 
+		memcpy(&block_a[BLOCK_A_DEV_ADDR_BYTE], payload->fhdr->dev_addr, BYTE_SIZE(DEV_ADDR_SIZE)); 
+		memset(&block_a[BLOCK_A_FCNT_BYTE], payload->fhdr->frame_counter, BYTE_SIZE(FRAME_COUNTER_SIZE)); 
 
 		unsigned char* key = fport == 0 ? device->nwk_skey : device->app_skey;
 		short int k = payload->frm_payload_len / 16 + 1;
+
 		for (int i = 1; i <= k; i++)
 		{
 			block_a[BLOCK_A_INDEX_BYTE] = k;
@@ -145,13 +144,11 @@ void MacPayload_set_commands_to_payload(
 
 void MacPayload_destroy(MacPayload* payload)
 {
-	if (payload == NULL) return;
 	free(payload->fhdr);
 	free(payload->fport);
 	free(payload->frm_payload);
 	Payload_destroy(payload->_payload);
 	free(payload);
-	payload = NULL;
 }
 
 MacPayload* MacPayload_create(FrameHeader* fhdr)
@@ -184,22 +181,18 @@ void JoinRequestPayload_extract(JoinRequestPayload* payload)
 	memcpy(pdata, payload->join_eui, BYTE_SIZE(JOIN_EUI_SIZE));
 	pdata += JOIN_EUI_SIZE;
 	payload->_payload->size += JOIN_EUI_SIZE;
-	free(payload->join_eui);
 
 	memcpy(pdata, payload->dev_eui, BYTE_SIZE(DEV_EUI_SIZE));
 	pdata += DEV_EUI_SIZE;
 	payload->_payload->size += DEV_EUI_SIZE;
-	free(payload->dev_eui);
 	
 	memcpy(pdata, payload->dev_nonce, BYTE_SIZE(DEV_NONCE_SIZE));
 	pdata += DEV_NONCE_SIZE;
 	payload->_payload->size += DEV_NONCE_SIZE;
-	free(payload->dev_nonce);
 }
 
 void JoinRequestPayload_destroy(JoinRequestPayload* payload)
 {
-	if (payload == NULL) return;
 	free(payload->join_eui);
 	free(payload->dev_eui);
 	free(payload->dev_nonce);
@@ -245,40 +238,33 @@ void JoinAcceptPayload_extract(JoinAcceptPayload* payload)
 	memcpy(pdata, payload->join_nonce, BYTE_SIZE(JOIN_NONCE_SIZE));
 	pdata += JOIN_NONCE_SIZE;
 	payload->_payload->size += JOIN_NONCE_SIZE;
-	free(payload->join_nonce);
 
 	memcpy(pdata, payload->net_id, BYTE_SIZE(NET_ID_SIZE));
 	pdata += NET_ID_SIZE;
 	payload->_payload->size += NET_ID_SIZE;
-	free(payload->net_id);
 	
 	memcpy(pdata, payload->dev_addr, BYTE_SIZE(DEV_ADDR_SIZE));
 	pdata += DEV_ADDR_SIZE;
 	payload->_payload->size += DEV_ADDR_SIZE;
-	free(payload->dev_addr);
 
 	memcpy(pdata, payload->dl_settings, BYTE_SIZE(DLSETTINGS_SIZE));
 	pdata += DLSETTINGS_SIZE;
 	payload->_payload->size += DLSETTINGS_SIZE;
-	free(payload->dl_settings);
 
 	if (payload->cf_list)
 	{
 		memcpy(pdata, payload->cf_list, BYTE_SIZE(CFLIST_SIZE));
 		pdata += CFLIST_SIZE;
 		payload->_payload->size += CFLIST_SIZE;
-		free(payload->cf_list);
 	}
 
 	memcpy(pdata, payload->rx_delay, BYTE_SIZE(RX_DELAY_SIZE));
 	pdata += RX_DELAY_SIZE;
 	payload->_payload->size += RX_DELAY_SIZE;
-	free(payload->rx_delay);
 }
 
 void JoinAcceptPayload_destroy(JoinAcceptPayload* payload)
 {
-	if (payload == NULL) return;
 	free(payload->join_nonce);
 	free(payload->net_id);
 	free(payload->dev_addr);
@@ -287,7 +273,6 @@ void JoinAcceptPayload_destroy(JoinAcceptPayload* payload)
 	free(payload->cf_list);
     Payload_destroy(payload->_payload);
     free(payload);
-	payload = NULL;
 }
 
 JoinAcceptPayload* JoinAcceptPayload_create(
@@ -329,7 +314,6 @@ JoinAcceptPayload* JoinAcceptPayload_create(
 	memset(payload->rx_delay, rx_delay, BYTE_SIZE(RX_DELAY_SIZE));
 
 	payload->_payload = Payload_create();
-	payload->_payload->size = 0;
 	payload->_payload->instance = payload->instance;
 
 	payload->_ipayload = payload->_payload->_ipayload;

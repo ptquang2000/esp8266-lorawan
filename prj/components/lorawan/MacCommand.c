@@ -12,10 +12,8 @@ void MacCommand_extract(MacCommand* cmd)
 
 void MacCommand_destroy(MacCommand* cmd)
 {
-    if (cmd == NULL) return;
     free(cmd->_icmd);
     free(cmd);
-    cmd = NULL;
 }
 
 MacCommand* MacCommand_create(
@@ -46,22 +44,18 @@ void DevStatusAns_extract(DevStatusAns* cmd)
     memcpy(pdata, cmd->battery, BYTE_SIZE(BATTERY_SIZE));
     pdata += BATTERY_SIZE;
     cmd->_cmd->size += BATTERY_SIZE;
-    free(cmd->battery);
 
     memcpy(pdata, cmd->radio_status, BYTE_SIZE(RADIO_STATUS_SIZE));
     pdata += RADIO_STATUS_SIZE;
     cmd->_cmd->size += RADIO_STATUS_SIZE;
-    free(cmd->radio_status);
 }
 
 void DevStatusAns_destroy(DevStatusAns* cmd)
 {
-    if (cmd == NULL) return;
     free(cmd->battery);
     free(cmd->radio_status);
     MacCommand_destroy(cmd->_cmd);
     free(cmd);
-    cmd = NULL;
 }
 
 DevStatusAns* DevStatusAns_create(short int battery, short int snr)

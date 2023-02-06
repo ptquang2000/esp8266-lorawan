@@ -4,6 +4,7 @@
 #include "stddef.h"
 #include "string.h"
 #include "stdlib.h"
+#include "stdio.h"
 #include "esp_system.h"
 
 #define BYTE_SIZE(size) (sizeof(unsigned char) * (size))
