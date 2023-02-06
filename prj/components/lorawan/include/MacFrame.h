@@ -6,7 +6,7 @@
 #include "MacPayload.h"
 #include "MacCommand.h"
 
-#define LORA_WAN_R1					0x00
+#define LORA_WAN_R1			0x00
 
 
 typedef enum FrameType_enum
@@ -20,23 +20,30 @@ typedef enum FrameType_enum
 	Proprietary				= 0b111
 } FrameType;
 
-typedef struct IMacFrame_struct
+typedef struct IFrame_struct
 {
 	void (*extract)();
-} IMacFrame;
+} IFrame;
 
-typedef struct MacFrame_struct
+typedef struct Frame_struct
 {
-	unsigned char* mhdr;
-	Payload* payload;
-	unsigned char* mic;
-
 	FrameType type;
+	unsigned char* mhdr;
+	unsigned char* mic;
 
 	short int size;
 	unsigned char data[MAXIMUM_PHYPAYLOAD_SIZE];
 
-	IMacFrame* _iframe;
+	IFrame* _iframe;
+	void* instance;
+} Frame;
+
+typedef struct MacFrame_struct
+{
+	MacPayload* payload;
+
+	IFrame* _iframe;
+	Frame* _frame;
 	void* instance;
 } MacFrame;
 
@@ -47,8 +54,8 @@ typedef struct JoinRequestFrame_struct
 {
 	JoinRequestPayload* payload;
 
-	IMacFrame* _iframe;
-	MacFrame* _frame;
+	IFrame* _iframe;
+	Frame* _frame;
 	void* instance;
 } JoinRequestFrame;
 
@@ -59,8 +66,8 @@ typedef struct JoinAcceptFrame_struct
 {
 	JoinAcceptPayload* payload;
 
-	IMacFrame* _iframe;
-	MacFrame* _frame;
+	IFrame* _iframe;
+	Frame* _frame;
 	void* instance;
 } JoinAcceptFrame;
 

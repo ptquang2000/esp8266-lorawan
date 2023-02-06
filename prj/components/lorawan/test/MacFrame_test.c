@@ -73,8 +73,8 @@ TEST_CASE("Test Confirmed Data Uplink", "[lorawan]")
 	frame->_iframe->extract(frame->instance, device);
 
 	unsigned char expected[] = {128, 4, 3, 2, 1, 3, 0, 0, 6, 115, 7, 10, 226, 100, 212, 247, 225, 23, 210, 192};
-	TEST_ASSERT_EQUAL_INT(sizeof(expected), frame->size);
-	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->data, sizeof(expected));
+	TEST_ASSERT_EQUAL_INT(sizeof(expected), frame->_frame->size);
+	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->_frame->data, sizeof(expected));
 
 	DevStatusAns_destroy(cmd->instance);
 	MacFrame_destroy(frame);

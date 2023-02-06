@@ -12,7 +12,12 @@
 #define BLOCK_A_INDEX_BYTE		15
 #define BLOCK_A_INDEX_SIZE		1
 
-static unsigned char block_a[BLOCK_A_SIZE] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+static unsigned char block_a[BLOCK_A_SIZE] = {
+	0x01, 0x00, 0x00, 0x00, 
+	0x00, 0x00, 0x00, 0x00, 
+	0x00, 0x00, 0x00, 0x00, 
+	0x00, 0x00, 0x00, 0x00
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -61,11 +66,12 @@ void MacPayload_extract(
 	pdata += DEV_ADDR_SIZE;
 	payload->_payload->size += DEV_ADDR_SIZE;
 	
-	short int fctrl = 	SET_BITS(payload->fhdr->is_adr, 1, FCTRL_ADR_BIT) | 
-						SET_BITS(payload->fhdr->is_adr_ack_req, 1, FCTRL_ADR_ACK_REQ_BIT) | 
-						SET_BITS(payload->fhdr->is_ack, 1, FCTRL_ACK_BIT) |
-						SET_BITS(payload->fhdr->is_classB, 1, FCTRL_CLASSB_BIT ) |
-						SET_BITS(payload->fhdr->fopts_len, FCTRL_FOPTS_LEN_BITS, FCTRL_FOPTS_LEN_OFFSET);
+	short int fctrl = 	
+		SET_BITS(payload->fhdr->is_adr, 1, FCTRL_ADR_BIT) | 
+		SET_BITS(payload->fhdr->is_adr_ack_req, 1, FCTRL_ADR_ACK_REQ_BIT) | 
+		SET_BITS(payload->fhdr->is_ack, 1, FCTRL_ACK_BIT) |
+		SET_BITS(payload->fhdr->is_classB, 1, FCTRL_CLASSB_BIT ) |
+		SET_BITS(payload->fhdr->fopts_len, FCTRL_FOPTS_LEN_BITS, FCTRL_FOPTS_LEN_OFFSET);
 	memset(pdata, fctrl, BYTE_SIZE(FRAME_CONTROL_SIZE));
 	pdata += FRAME_CONTROL_SIZE;
 	payload->_payload->size += FRAME_CONTROL_SIZE;
@@ -83,23 +89,36 @@ void MacPayload_extract(
 
 	if (payload->fport)
 	{
-		short int fport = payload->fport[0];
 		memcpy(pdata, payload->fport, BYTE_SIZE(FRAME_PORT_SIZE));
 		pdata += FRAME_PORT_SIZE;
 		payload->_payload->size += FRAME_PORT_SIZE;
 
-		memset(&block_a[BLOCK_A_DIR_BYTE], *pdir, BYTE_SIZE(BLOCK_A_DIR_SIZE)); 
-		memcpy(&block_a[BLOCK_A_DEV_ADDR_BYTE], payload->fhdr->dev_addr, BYTE_SIZE(DEV_ADDR_SIZE)); 
-		memset(&block_a[BLOCK_A_FCNT_BYTE], payload->fhdr->frame_counter, BYTE_SIZE(FRAME_COUNTER_SIZE)); 
-
+		short int fport = payload->fport[0];
 		unsigned char* key = fport == 0 ? device->nwk_skey : device->app_skey;
-		short int k = payload->frm_payload_len / 16 + 1;
 
+		memset(
+			&block_a[BLOCK_A_DIR_BYTE], 
+			*pdir, 
+			BYTE_SIZE(BLOCK_A_DIR_SIZE)
+		); 
+		memcpy(
+			&block_a[BLOCK_A_DEV_ADDR_BYTE], 
+			payload->fhdr->dev_addr, 
+			BYTE_SIZE(DEV_ADDR_SIZE)
+		); 
+		memset(
+			&block_a[BLOCK_A_FCNT_BYTE], 
+			payload->fhdr->frame_counter, 
+			BYTE_SIZE(FRAME_COUNTER_SIZE)
+		); 
+
+		short int k = payload->frm_payload_len / 16 + 1;
 		for (int i = 1; i <= k; i++)
 		{
 			block_a[BLOCK_A_INDEX_BYTE] = k;
 			unsigned char block_s[BLOCK_A_SIZE];
 			aes128_encrypt(key, block_a, block_s, BLOCK_A_SIZE);
+
 			for (int j = 0; j < BLOCK_A_SIZE; j++)
 			{
 				pdata[j] = payload->frm_payload[j] ^ block_s[j];
@@ -116,8 +135,10 @@ void MacPayload_set_app_payload(
 	int len,
 	unsigned char* app_payload)
 {
-	ESP_ERROR_CHECK(fport == 0);
-	ESP_ERROR_CHECK(payload->fport != NULL && (short int)(*payload->fport) == 0);
+	ESP_ERROR_CHECK(
+		fport == 0 ||
+		(payload->fport != NULL && (short int)(*payload->fport) == 0)
+	);
 
 	payload->frm_payload = malloc(sizeof(unsigned char) * len);
 	memcpy(payload->frm_payload, app_payload, sizeof(unsigned char) * len);
@@ -147,13 +168,17 @@ void MacPayload_destroy(MacPayload* payload)
 	free(payload->fhdr);
 	free(payload->fport);
 	free(payload->frm_payload);
+
 	Payload_destroy(payload->_payload);
 	free(payload);
 }
 
 MacPayload* MacPayload_create(FrameHeader* fhdr)
 {
-	ESP_ERROR_CHECK(fhdr->fopts_len < 0 || fhdr->fopts_len > MAXIMUM_FRAME_OPTIONS_SIZE);
+	ESP_ERROR_CHECK(
+		fhdr->fopts_len < 0 || 
+		fhdr->fopts_len > MAXIMUM_FRAME_OPTIONS_SIZE
+	);
 	
 	MacPayload* payload = malloc(sizeof(MacPayload));
 	payload->instance = payload;
@@ -196,6 +221,7 @@ void JoinRequestPayload_destroy(JoinRequestPayload* payload)
 	free(payload->join_eui);
 	free(payload->dev_eui);
 	free(payload->dev_nonce);
+
     Payload_destroy(payload->_payload);
     free(payload);
 }
@@ -224,7 +250,9 @@ JoinRequestPayload* JoinRequestPayload_create(LoraDevice* device)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void JoinAcceptPayload_set_join_nonce(JoinAcceptPayload* payload, unsigned int join_nonce)
+void JoinAcceptPayload_set_join_nonce(
+	JoinAcceptPayload* payload, 
+	unsigned int join_nonce)
 {
 	payload->join_nonce[2] = (unsigned char)(join_nonce >> 16);
 	payload->join_nonce[1] = (unsigned char)(join_nonce >> 8);
@@ -271,6 +299,7 @@ void JoinAcceptPayload_destroy(JoinAcceptPayload* payload)
 	free(payload->rx_delay);
 	free(payload->dl_settings);
 	free(payload->cf_list);
+
     Payload_destroy(payload->_payload);
     free(payload);
 }
@@ -294,17 +323,43 @@ JoinAcceptPayload* JoinAcceptPayload_create(
     JoinAcceptPayload_set_join_nonce(payload, join_nonce);
 	memcpy(payload->net_id, net_id, sizeof(unsigned char)* NET_ID_SIZE);
 	memcpy(payload->dev_addr, dev_addr, sizeof(unsigned char)* DEV_ADDR_SIZE);
-	payload->dl_settings[0] = SET_BITS(dl_settings->rx1_dr_offset, RX1DROFFSET_BITS, RX1DROFFSET_OFFSET) |
-						SET_BITS(dl_settings->rx2_data_rate, RX2DATARATE_BITS, RX2DATARATE_OFFSET);
+	payload->dl_settings[0] = 
+		SET_BITS(dl_settings->rx1_dr_offset, RX1DROFFSET_BITS, RX1DROFFSET_OFFSET) |
+		SET_BITS(dl_settings->rx2_data_rate, RX2DATARATE_BITS, RX2DATARATE_OFFSET);
+
 	if (cf_list)
 	{
 		payload->cf_list = malloc(BYTE_SIZE(CFLIST_SIZE));
-		memset(&payload->cf_list[FRE_CH3_OFFSET], BIT_MASK(cf_list->fre_ch3, 12), BYTE_SIZE(FRE_CHX_SIZE));
-		memset(&payload->cf_list[FRE_CH4_OFFSET], BIT_MASK(cf_list->fre_ch4, 12), BYTE_SIZE(FRE_CHX_SIZE));
-		memset(&payload->cf_list[FRE_CH5_OFFSET], BIT_MASK(cf_list->fre_ch5, 12), BYTE_SIZE(FRE_CHX_SIZE));
-		memset(&payload->cf_list[FRE_CH6_OFFSET], BIT_MASK(cf_list->fre_ch6, 12), BYTE_SIZE(FRE_CHX_SIZE));
-		memset(&payload->cf_list[FRE_CH7_OFFSET], BIT_MASK(cf_list->fre_ch7, 12), BYTE_SIZE(FRE_CHX_SIZE));
-		memset(&payload->cf_list[CFLIST_TYPE_OFFSET], 0x0, BYTE_SIZE(FRE_CHX_SIZE));
+		memset(
+			&payload->cf_list[FRE_CH3_OFFSET], 
+			BIT_MASK(cf_list->fre_ch3, 12), 
+			BYTE_SIZE(FRE_CHX_SIZE)
+		);
+		memset(
+			&payload->cf_list[FRE_CH4_OFFSET], 
+			BIT_MASK(cf_list->fre_ch4, 12), 
+			BYTE_SIZE(FRE_CHX_SIZE)
+		);
+		memset(
+			&payload->cf_list[FRE_CH5_OFFSET], 
+			BIT_MASK(cf_list->fre_ch5, 12), 
+			BYTE_SIZE(FRE_CHX_SIZE)
+		);
+		memset(
+			&payload->cf_list[FRE_CH6_OFFSET], 
+			BIT_MASK(cf_list->fre_ch6, 12), 
+			BYTE_SIZE(FRE_CHX_SIZE)
+		);
+		memset(
+			&payload->cf_list[FRE_CH7_OFFSET], 
+			BIT_MASK(cf_list->fre_ch7, 12), 
+			BYTE_SIZE(FRE_CHX_SIZE)
+		);
+		memset(
+			&payload->cf_list[CFLIST_TYPE_OFFSET], 
+			0x0, 
+			BYTE_SIZE(FRE_CHX_SIZE)
+		);
 	}
 	else
 	{
