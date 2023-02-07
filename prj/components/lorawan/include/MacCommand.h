@@ -41,18 +41,20 @@ typedef struct MacCommand_struct
     void* instance;
 } MacCommand;
 
-MacCommand* MacCommand_create(
-    MacCommandType type,
-    MacCommandCid cid);
+MacCommand* MacCommand_create(MacCommandCid cid, MacCommandType type);
 void MacCommand_destroy(MacCommand* cmd);
-void MacCommand_extract(MacCommand* cmd);
 
-typedef struct LinkCheckReq_struct
+typedef struct EmptyCommand_struct
 {
     IMacCommand* _icmd;
     MacCommand* _cmd;
     void* instance;
-} LinkCheckReq;
+} EmptyCommand;
+
+typedef EmptyCommand LinkCheckReq;
+
+void LinkCheckReq_destroy(LinkCheckReq* cmd);
+LinkCheckReq* LinkCheckReq_create();
 
 typedef struct LinkCheckAns_struct
 {
@@ -93,12 +95,7 @@ typedef struct DutyCycleReq_struct
     void* instance;
 } DutyCycleReq;
 
-typedef struct DutyCycleAns_struct
-{
-    IMacCommand* _icmd;
-    MacCommand* _cmd;
-    void* instance;
-} DutyCycleAns;
+typedef EmptyCommand DutyCycleAns;
 
 typedef struct RxParamSetupReq_struct
 {
@@ -119,12 +116,7 @@ typedef struct RxParamSetupAns_struct
     void* instance;
 } RxParamSetupAns;
 
-typedef struct DevStatusReq_struct
-{
-    IMacCommand* _icmd;
-    MacCommand* _cmd;
-    void* instance;
-} DevStatusReq;
+typedef EmptyCommand DevStatusReq;
 
 typedef struct DevStatusAns_struct
 {
@@ -187,12 +179,7 @@ typedef struct RXTimingSetupReq_struct
     void* instance;
 } RXTimingSetupReq;
 
-typedef struct RXTimingSetupAns_struct
-{
-    IMacCommand* _icmd;
-    MacCommand* _cmd;
-    void* instance;
-} RXTimingSetupAns;
+typedef EmptyCommand RXTimingSetupAns;
 
 typedef struct DeviceTimeReq_struct
 {
@@ -204,12 +191,7 @@ typedef struct DeviceTimeReq_struct
     void* instance;
 } DeviceTimeReq;
 
-typedef struct DeviceTimeAns_struct
-{
-    IMacCommand* _icmd;
-    MacCommand* _cmd;
-    void* instance;
-} DeviceTimeAns;
+typedef EmptyCommand DeviceTimeAns;
 
 
 #endif // MAC_COMMAND_H

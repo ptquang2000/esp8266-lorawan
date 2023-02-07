@@ -78,5 +78,4 @@ TEST_CASE("Test Confirmed Data Uplink", "[lorawan]")
 
 	DevStatusAns_destroy(cmd->instance);
 	MacFrame_destroy(frame);
-	
 }

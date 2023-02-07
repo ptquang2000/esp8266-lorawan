@@ -6,7 +6,7 @@
 
 void MacCommand_extract(MacCommand* cmd)
 {
-    memset(cmd->data, (short int)cmd->type, BYTE_SIZE(CID_SIZE));
+    memset(cmd->data, cmd->cid, BYTE_SIZE(CID_SIZE));
     cmd->size += CID_SIZE;
 }
 
@@ -16,9 +16,7 @@ void MacCommand_destroy(MacCommand* cmd)
     free(cmd);
 }
 
-MacCommand* MacCommand_create(
-    MacCommandType type,
-    MacCommandCid cid)
+MacCommand* MacCommand_create(MacCommandCid cid, MacCommandType type)
 {
     MacCommand* cmd = malloc(sizeof(MacCommand));
     cmd->instance = cmd;
@@ -29,6 +27,32 @@ MacCommand* MacCommand_create(
     cmd->cid = cid;
     cmd->type = type;
     cmd->size = 0;
+
+    return cmd;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void LinkCheckReq_extract(LinkCheckReq* cmd)
+{
+    MacCommand_extract(cmd->_cmd);
+}
+
+void LinkCheckReq_destroy(LinkCheckReq* cmd)
+{
+    MacCommand_destroy(cmd->_cmd);
+}
+
+LinkCheckReq* LinkCheckReq_create()
+{
+    LinkCheckReq* cmd = malloc(sizeof(LinkCheckReq));
+    cmd->instance = cmd;
+
+    cmd->_cmd = MacCommand_create(LinkCheck, Answer);
+    cmd->_cmd->instance = cmd->instance;
+
+    cmd->_icmd = cmd->_cmd->_icmd;
+    cmd->_icmd->extract = &LinkCheckReq_extract;
 
     return cmd;
 }
@@ -69,12 +93,16 @@ DevStatusAns* DevStatusAns_create(short int battery, short int snr)
     (*cmd->radio_status) = SET_BITS((unsigned char)snr, SNR_BITS, SNR_OFFSET);
 
     cmd->_cmd = MacCommand_create(DevStatus, Answer);
-    cmd->_icmd = cmd->_cmd->_icmd;
     cmd->_cmd->instance = cmd->instance;
 
+    cmd->_icmd = cmd->_cmd->_icmd;
     cmd->_icmd->extract = &DevStatusAns_extract;
 
     return cmd;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+
 
 ////////////////////////////////////////////////////////////////////////////////

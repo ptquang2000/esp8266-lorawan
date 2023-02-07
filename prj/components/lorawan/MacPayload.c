@@ -92,7 +92,10 @@ void MacPayload_extract(
 		memcpy(pdata, payload->fport, BYTE_SIZE(FRAME_PORT_SIZE));
 		pdata += FRAME_PORT_SIZE;
 		payload->_payload->size += FRAME_PORT_SIZE;
+	}
 
+	if (payload->fport && payload->frm_payload)
+	{
 		short int fport = payload->fport[0];
 		unsigned char* key = fport == 0 ? device->nwk_skey : device->app_skey;
 
@@ -115,7 +118,7 @@ void MacPayload_extract(
 		short int k = payload->frm_payload_len / 16 + 1;
 		for (int i = 1; i <= k; i++)
 		{
-			block_a[BLOCK_A_INDEX_BYTE] = k;
+			block_a[BLOCK_A_INDEX_BYTE] = i;
 			unsigned char block_s[BLOCK_A_SIZE];
 			aes128_encrypt(key, block_a, block_s, BLOCK_A_SIZE);
 
@@ -127,6 +130,17 @@ void MacPayload_extract(
 		}
 		payload->_payload->size += payload->frm_payload_len;
 	}
+}
+
+void MacPayload_set_fport(MacPayload* payload, short int fport)
+{
+	ESP_ERROR_CHECK(
+		payload->fport != NULL ||
+		(payload->fhdr->fopts_len > 0 && fport == 0)
+	);
+
+	payload->fport = malloc(BYTE_SIZE(FRAME_PORT_SIZE));
+	memset(payload->fport, fport, BYTE_SIZE(FRAME_PORT_SIZE));
 }
 
 void MacPayload_set_app_payload(
@@ -151,16 +165,37 @@ void MacPayload_set_app_payload(
 void MacPayload_set_commands_to_payload(
 	MacPayload* payload, 
 	int len, 
-	unsigned char* mac_commands)
+	MacCommand** cmds)
 {
-	ESP_ERROR_CHECK(payload->fhdr->fopts_len > 0);
+	ESP_ERROR_CHECK(
+		payload->frm_payload != NULL ||
+		payload->fhdr->fopts_len > 0
+	);
+	
+	unsigned int max_len = 
+		MAXIMUM_FRAME_PAYLOAD_SIZE - 
+		MAXIMUM_FRAME_OPTIONS_SIZE + 
+		payload->fhdr->fopts_len;
+	unsigned char* frm_payload = malloc(BYTE_SIZE(max_len));
+	unsigned char* pfrm_payload = frm_payload;
+	
+	payload->frm_payload_len = 0;
+	for (int i = 0; i < len; i++)
+	{
+		cmds[i]->_icmd->extract(cmds[i]->instance);
+		payload->frm_payload_len += cmds[i]->size;
+		ESP_ERROR_CHECK(payload->frm_payload_len > max_len);
 
-	payload->frm_payload = malloc(sizeof(unsigned char) * len);
-	memcpy(payload->frm_payload, mac_commands, sizeof(unsigned char) * len);
-	payload->frm_payload_len = len;
+		memcpy(pfrm_payload, cmds[i]->data, BYTE_SIZE(cmds[i]->size));
+		pfrm_payload += cmds[i]->size;
+	}
+	payload->frm_payload = malloc(BYTE_SIZE(payload->frm_payload_len));
+	memcpy(payload->frm_payload, frm_payload, BYTE_SIZE(payload->frm_payload_len));
 	
 	payload->fport = malloc(BYTE_SIZE(FRAME_PORT_SIZE));
 	memset(payload->fport, 0x0, BYTE_SIZE(FRAME_PORT_SIZE));
+	
+	free(frm_payload);
 }
 
 void MacPayload_destroy(MacPayload* payload)
@@ -193,6 +228,8 @@ MacPayload* MacPayload_create(FrameHeader* fhdr)
 
 	payload->_ipayload = payload->_payload->_ipayload;
 	payload->_ipayload->extract = &MacPayload_extract;
+
+	payload->frm_payload_len = 0;
 
 	return payload;
 }

@@ -54,8 +54,17 @@ void MacFrame_extract(
 	LoraDevice* device)
 {
 	unsigned char* pdata = frame->_frame->data;
-	
+
+	memcpy(pdata, frame->_frame->mhdr, BYTE_SIZE(MHDR_SIZE));
+	frame->_frame->size += MHDR_SIZE;
+	pdata += MHDR_SIZE;
+
 	short int dir = BIT_MASK(frame->_frame->type, 1);
+	frame->payload->_ipayload->extract(frame->payload->instance, device, &dir);
+	memcpy(pdata, frame->payload->_payload->data, BYTE_SIZE(frame->payload->_payload->size));
+	frame->_frame->size += frame->payload->_payload->size;
+	pdata += frame->payload->_payload->size;
+	
 	memset(
 		&block_b0[BLOCK_B_DIR_BYTE], 
 		dir, 
@@ -71,16 +80,6 @@ void MacFrame_extract(
 		frame->payload->fhdr->frame_counter, 
 		BYTE_SIZE(BLOCK_B_FCNT_SIZE)
 	); 
-
-	memcpy(pdata, frame->_frame->mhdr, BYTE_SIZE(MHDR_SIZE));
-	frame->_frame->size += MHDR_SIZE;
-	pdata += MHDR_SIZE;
-
-	frame->payload->_ipayload->extract(frame->payload->instance, device, &dir);
-	memcpy(pdata, frame->payload->_payload->data, BYTE_SIZE(frame->payload->_payload->size));
-	frame->_frame->size += frame->payload->_payload->size;
-	pdata += frame->payload->_payload->size;
-
 	memset(
 		&block_b0[BLOCK_B_MESSAGE_BYTE], 
 		frame->_frame->size, 

@@ -9,20 +9,20 @@ void app_main(void)
     // unity_run_test_by_name("Mean of an empty array is zero");
     // UNITY_END();
 
-    // print_banner("Running tests with [mean] tag");
-    // UNITY_BEGIN();
-    // unity_run_tests_by_tag("[mean]", false);
-    // UNITY_END();
+    print_banner("Running tests with [class A] tag");
+    UNITY_BEGIN();
+    unity_run_tests_with_filter("[class A][MacCommand][linkcheck]");
+    UNITY_END();
 
     // print_banner("Running tests without [fails] tag");
     // UNITY_BEGIN();
-    // unity_run_tests_by_tag("[fails]", true);
+    // unity_run_tests_by_tag("[fails]", 1);
     // UNITY_END();
 
-    print_banner("Running all the registered tests");
-    UNITY_BEGIN();
-    unity_run_all_tests();
-    UNITY_END();
+    // print_banner("Running all the registered tests");
+    // UNITY_BEGIN();
+    // unity_run_all_tests();
+    // UNITY_END();
 
     print_banner("Starting interactive test menu");
     /* This function will not return, and will be busy waiting for UART input.

@@ -93,6 +93,7 @@ typedef struct MacPayload_struct
 
 MacPayload* MacPayload_create(FrameHeader* fhdr);
 void MacPayload_destroy(MacPayload* payload);
+void MacPayload_set_fport(MacPayload* payload, short int fport);
 void MacPayload_set_app_payload(
 	MacPayload* payload, 
 	short int fport, 
@@ -101,7 +102,7 @@ void MacPayload_set_app_payload(
 void MacPayload_set_commands_to_payload(
 	MacPayload* payload, 
 	int len, 
-	unsigned char* mac_commands);
+	MacCommand** mac_commands);
 
 typedef struct JoinRequestPayload_struct
 {
