@@ -17,7 +17,7 @@ typedef enum MacCommandCid_enum
     DutyCycle       = 0x04,
     RXParamSetup    = 0x05,
     DevStatus       = 0x06,
-    NewChannel      = 0x06,
+    NewChannel      = 0x07,
     RXTimingSetup   = 0x08,
     TXParamSetup    = 0x09,
     DlChannel       = 0x0A,
@@ -86,6 +86,9 @@ typedef struct LinkAdrAns_struct
     void* instance;
 } LinkAdrAns;
 
+void LinkAdrAns_destroy(LinkAdrAns* cmd);
+LinkAdrAns* LinkAdrAns_create(ADRStatus* status);
+
 typedef struct DutyCycleReq_struct
 {
     unsigned char* duty_cycle;
@@ -96,6 +99,9 @@ typedef struct DutyCycleReq_struct
 } DutyCycleReq;
 
 typedef EmptyCommand DutyCycleAns;
+
+void DutyCycleAns_destroy(DutyCycleAns* cmd);
+DutyCycleAns* DutyCycleAns_create();
 
 typedef struct RxParamSetupReq_struct
 {
@@ -116,6 +122,9 @@ typedef struct RxParamSetupAns_struct
     void* instance;
 } RxParamSetupAns;
 
+void RxParamSetupAns_destroy(RxParamSetupAns* cmd);
+RxParamSetupAns* RxParamSetupAns_create(RXParamSetupStatus* status);
+
 typedef EmptyCommand DevStatusReq;
 
 typedef struct DevStatusAns_struct
@@ -128,8 +137,8 @@ typedef struct DevStatusAns_struct
     void* instance;
 } DevStatusAns;
 
-DevStatusAns* DevStatusAns_create(short int battery, short int snr);
 void DevStatusAns_destroy(DevStatusAns* cmd);
+DevStatusAns* DevStatusAns_create(DeviceStatus* status);
 
 typedef struct NewChannelReq_struct
 {
@@ -151,6 +160,9 @@ typedef struct NewChannelAns_struct
     void* instance;
 } NewChannelAns;
 
+void NewChannelAns_destroy(NewChannelAns* cmd);
+NewChannelAns* NewChannelAns_create(NewChannelStatus* status);
+
 typedef struct DownlinkChannelReq_struct
 {
     unsigned char* channel_index;
@@ -170,6 +182,9 @@ typedef struct DownlinkChannelAns_struct
     void* instance;
 } DownlinkChannelAns;
 
+DownlinkChannelAns* DownlinkChannelAns_create(DownlinkChannelStatus* status);
+void DownlinkChannelAns_destroy(DownlinkChannelAns* cmd);
+
 typedef struct RXTimingSetupReq_struct
 {
     unsigned char* rx_timing_settings; 
@@ -181,7 +196,15 @@ typedef struct RXTimingSetupReq_struct
 
 typedef EmptyCommand RXTimingSetupAns;
 
-typedef struct DeviceTimeReq_struct
+void RXTimingSetupAns_destroy(RXTimingSetupAns* cmd);
+RXTimingSetupAns* RXTimingSetupAns_create();
+
+typedef EmptyCommand DeviceTimeReq;
+
+void DeviceTimeReq_destroy(RXTimingSetupAns* cmd);
+DeviceTimeReq* DeviceTimeReq_create();
+
+typedef struct DeviceTimeAns_struct
 {
     unsigned char* seconds;
     unsigned char* fractional_second;
@@ -189,9 +212,7 @@ typedef struct DeviceTimeReq_struct
     IMacCommand* _icmd;
     MacCommand* _cmd;
     void* instance;
-} DeviceTimeReq;
-
-typedef EmptyCommand DeviceTimeAns;
+} DeviceTimeAns;
 
 
 #endif // MAC_COMMAND_H

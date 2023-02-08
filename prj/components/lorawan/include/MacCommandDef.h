@@ -3,6 +3,8 @@
 
 #define CID_SIZE                                1
 
+#define STATUS_SIZE                             1
+
 #define LINK_CHECK_REQ_SIZE                     0
 
 #define LINK_CHECK_ANS_SIZE                     2
@@ -61,9 +63,9 @@
 #define     FREQUENCY_SIZE                      3
 
 #define RX_PARAM_SETUP_ANS_SIZE                 1
-#define     RX1_OFFSET_ACK_BIT                  1
+#define     RX1_OFFSET_ACK_BIT                  2
 #define     RX2_DATA_RATE_ACK_BIT               1
-#define     CHANNEL_ACK_BIT                     1
+#define     CHANNEL_ACK_BIT                     0
 
 #define DEV_STATUS_REQ_SIZE                     0
 
@@ -83,8 +85,8 @@
 #define         MIN_DR_OFFSET                   4
 
 #define NEW_CHANNEL_ANS_SIZE                    1
-#define     CHANNEL_FREQUENCY_BIT               0
 #define     DATA_RATE_RANGE_BIT                 1
+#define     CHANNEL_FREQUENCY_BIT               0
 
 #define DOWNLINK_CHANNEL_REQ_SIZE               4
 #define     CHANNEL_INDEX_SIZE                  1
@@ -92,7 +94,7 @@
 
 #define DOWNLINK_CHANNEL_ANS_SIZE               1
 #define     UPLINK_FREQUENCY_BIT                1
-#define   CHANNEL_FREQUENCY_BIT                 0
+#define     CHANNEL_FREQUENCY_BIT               0
 
 #define RX_TIMING_SETUP_REQ_SIZE                1
 #define     DELAY_BITS                          4
@@ -153,15 +155,17 @@ typedef struct DLSettings_struct
 	short int rx2_data_rate;
 } DLSettings;
 
-typedef struct RadioStatus_struct
+typedef struct DeviceStatus_struct
 {
-    short int snr;
-} RadioStatus;
+    short int battery_power;
+    short int radio_status;
+} DeviceStatus;
 
 typedef struct RXParamSetupStatus_struct
 {
-	DLSettings dowlink_setting;
-    short int channel;
+	short int rx1_dr_offset_ack;
+	short int rx2_data_rate_ack;
+    short int channel_ack;
 } RXParamSetupStatus;
 
 typedef struct DataRateRange_struct
@@ -181,6 +185,12 @@ typedef struct DownlinkChannelStatus_struct
     short int uplink_frequency;
     short int channel_frequency;
 } DownlinkChannelStatus;
+
+typedef struct DeviceTimeInSecond_struct
+{
+    unsigned int seconds;
+    short int fraction_second;
+} DeviceTimeInSecond;
 
 
 #endif // MAC_COMMAND_DEF_H

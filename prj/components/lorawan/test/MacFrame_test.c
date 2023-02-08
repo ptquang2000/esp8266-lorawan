@@ -62,8 +62,11 @@ TEST_CASE("Test Confirmed Data Uplink", "[lorawan]")
 		.is_classB = 0,
 		.fopts_len = 0
 	};
-
-	MacCommand* cmd = DevStatusAns_create(115, 7)->_cmd;
+	DeviceStatus status = {
+		.battery_power = 115,
+		.radio_status = 7
+	};
+	MacCommand* cmd = DevStatusAns_create(&status)->_cmd;
 	FrameHeader_insert_cmd(&fhdr, cmd);
 
 	MacFrame* frame = MacFrame_create(ConfirmedDataUplink, &fhdr);
