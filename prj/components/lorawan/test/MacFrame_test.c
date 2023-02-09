@@ -73,7 +73,7 @@ TEST_CASE("Test Confirmed Data Uplink", "[lorawan]")
 
 	unsigned char payload[] = {1, 2, 3, 4};
 	MacPayload_set_app_payload(frame->payload->instance, fport, sizeof(payload), payload);
-	frame->_iframe->extract(frame->instance, device);
+	frame->_iframe->extract(frame->instance, nwk_skey, app_skey);
 
 	unsigned char expected[] = {128, 4, 3, 2, 1, 3, 0, 0, 6, 115, 7, 10, 226, 100, 212, 247, 225, 23, 210, 192};
 	TEST_ASSERT_EQUAL_INT(sizeof(expected), frame->_frame->size);

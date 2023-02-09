@@ -4,7 +4,6 @@
 
 static unsigned char nwk_skey[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 static unsigned char app_skey[] = {16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
-static unsigned char dev_addr[] = {4, 3, 2, 1};
 
 static FrameHeader fhdr = {
 	.dev_addr = {4, 3, 2, 1},
@@ -37,7 +36,6 @@ void print_frame_data(Frame* frame, int type)
 
 static void check_cmd_frm_payload(MacCommand* cmd, short int len, unsigned char* expected)
 {
-	LoraDevice* device = LoraDevice_create(dev_addr, nwk_skey, app_skey, nwk_skey, nwk_skey, nwk_skey, 0);;
 	fhdr.fopts_len = 0;
 
 	MacFrame* frame = MacFrame_create(ConfirmedDataUplink, &fhdr);
@@ -46,30 +44,27 @@ static void check_cmd_frm_payload(MacCommand* cmd, short int len, unsigned char*
 	cmds[0] = cmd;
 
     MacPayload_set_commands_to_payload(frame->payload, num_of_cmds, cmds);
-	frame->_iframe->extract(frame->instance, device);
+	frame->_iframe->extract(frame->instance, nwk_skey, app_skey);
 
 	TEST_ASSERT_EQUAL_INT(len, frame->_frame->size);
 	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->_frame->data, len);
 
 	free(cmds);
 	MacFrame_destroy(frame);
-	LoraDevice_destroy(device);
 }
 
 static void check_cmd_fopts(MacCommand* cmd, short int len, unsigned char* expected)
 {
-	LoraDevice* device = LoraDevice_create(dev_addr, nwk_skey, app_skey, nwk_skey, nwk_skey, nwk_skey, 0);
 	fhdr.fopts_len = 0;
 	FrameHeader_insert_cmd(&fhdr, cmd);
 
 	MacFrame* frame = MacFrame_create(ConfirmedDataUplink, &fhdr);
-	frame->_iframe->extract(frame->instance, device);
+	frame->_iframe->extract(frame->instance, nwk_skey, app_skey);
 
 	TEST_ASSERT_EQUAL_INT(len, frame->_frame->size);
 	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->_frame->data, len);
 
 	MacFrame_destroy(frame);
-	LoraDevice_destroy(device);
 }
 
 

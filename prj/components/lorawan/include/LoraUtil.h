@@ -10,7 +10,8 @@
 #define BYTE_SIZE(size) (sizeof(unsigned char) * (size))
 #define BIT_MASK(value, mask) ((value) & ((1 << (mask)) - 1))
 #define SET_BITS(value, mask, offset) (BIT_MASK((value), (mask)) << (offset))
-#define SET_BIT(value, offset) (SET_BITS((value), 1, (offset)))
+#define SET_BIT(value, offset) SET_BITS((value), 1, (offset))
+#define GET_BITS(value, mask, offset) BIT_MASK((value) >> (offset), (mask))
 
 
 void calculate_mic(

@@ -58,7 +58,8 @@ void FrameHeader_insert_cmd(FrameHeader* fhdr, MacCommand* cmd)
 
 void MacPayload_extract(
 	MacPayload* payload, 
-	LoraDevice* device,
+	unsigned char* nwk_skey,
+	unsigned char* app_skey,
 	short int* pdir)
 {
 	unsigned char* pdata = payload->_payload->data;
@@ -97,7 +98,7 @@ void MacPayload_extract(
 	if (payload->fport && payload->frm_payload)
 	{
 		short int fport = payload->fport[0];
-		unsigned char* key = fport == 0 ? device->nwk_skey : device->app_skey;
+		unsigned char* key = fport == 0 ? nwk_skey : app_skey;
 
 		memset(
 			&block_a[BLOCK_A_DIR_BYTE], 

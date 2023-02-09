@@ -29,6 +29,93 @@ void Frame_destroy(Frame* frame)
 	free(frame);
 }
 
+short int Frame_validation(
+	Frame* frame,
+	short int dir,
+	unsigned char* dev_addr, 
+	short int frame_counter,
+	unsigned char* nwk_skey, 
+	FrameHeader* fhdr)
+{
+	short int size_no_mic = frame->size - MIC_SIZE;
+	memset(
+		&block_b0[BLOCK_B_DIR_BYTE], 
+		BIT_MASK(dir, 1), 
+		BYTE_SIZE(BLOCK_B_DIR_SIZE)
+	); 
+	memcpy(
+		&block_b0[BLOCK_B_DEV_ADDR_BYTE], 
+		dev_addr, 
+		BYTE_SIZE(BLOCK_B_DEV_ADDR_SIZE)
+	); 
+	memset(
+		&block_b0[BLOCK_B_FCNT_BYTE], 
+		frame_counter + 1, 
+		BYTE_SIZE(BLOCK_B_FCNT_SIZE)
+	); 
+	memset(
+		&block_b0[BLOCK_B_MESSAGE_BYTE], 
+		size_no_mic, 
+		BYTE_SIZE(BLOCK_B_MESSAGE_SIZE)
+	); 
+
+	// TODO: check size < MAXIMUM_MACPAYLOAD_SIZE
+	unsigned char* b0_msg = malloc(BYTE_SIZE(BLOCK_B0_SIZE + size_no_mic));
+	memcpy(b0_msg, block_b0, BYTE_SIZE(BLOCK_B0_SIZE));
+	memcpy(b0_msg + BLOCK_B0_SIZE, frame->data, BYTE_SIZE(size_no_mic));
+
+	unsigned char mic[MIC_SIZE];
+	calculate_mic(nwk_skey, b0_msg, BLOCK_B0_SIZE + size_no_mic, mic);
+	if (memcmp(mic, frame->mic, MIC_SIZE) != 0)
+	{
+		return -1;
+	}
+
+	short int type = GET_BITS((*frame->mhdr), FRAME_TYPE_BITS, FRAME_TYPE_OFFSET);
+	short int version = GET_BITS((*frame->mhdr), FRAME_VERSION_BITS, FRAME_VERSION_OFFSET);
+	
+	// TODO: only support LORA_WAN_R1 first
+	if (version != LORA_WAN_R1) return -1;
+
+	if (type < MIN_FRAMETYPE || type > MAX_FRAMETYPE) return -1;
+	else frame->type = (FrameType)type;
+	
+	unsigned char* pdata = frame->data + MHDR_SIZE;
+
+	memcpy(fhdr->dev_addr, pdata, BYTE_SIZE(DEV_ADDR_SIZE));
+	pdata += DEV_ADDR_SIZE;
+
+
+	return 0;
+}
+
+Frame* Frame_create_by_data(short int size, unsigned char* data)
+{
+	Frame* frame = malloc(sizeof(Frame));
+	frame->instance = frame;
+
+	frame->mhdr = malloc(BYTE_SIZE(MHDR_SIZE));
+	frame->mic = malloc(BYTE_SIZE(MIC_SIZE));
+
+	frame->_iframe = malloc(sizeof(IFrame));
+	frame->_iframe->extract = &Frame_extract;
+
+	ESP_ERROR_CHECK(size > MAXIMUM_PHYPAYLOAD_SIZE);
+	frame->size = size;
+	memcpy(frame->data, data, BYTE_SIZE(size));
+
+	if (frame->size < MINIMUM_PHYPAYLOAD_SIZE)
+	{
+		Frame_destroy(frame);
+		return NULL;
+	}
+
+	memcpy(frame->mhdr, frame->data, BYTE_SIZE(MHDR_SIZE));
+	memcpy(frame->mic, frame->data + (frame->size - MIC_SIZE), BYTE_SIZE(MIC_SIZE));
+
+	return frame;
+}
+
 Frame* Frame_create(FrameType frame_type)
 {
 	Frame* frame = malloc(sizeof(Frame));
@@ -51,7 +138,8 @@ Frame* Frame_create(FrameType frame_type)
 
 void MacFrame_extract(
 	MacFrame* frame,
-	LoraDevice* device)
+	unsigned char* nwk_skey,
+	unsigned char* app_skey)
 {
 	unsigned char* pdata = frame->_frame->data;
 
@@ -60,7 +148,7 @@ void MacFrame_extract(
 	pdata += MHDR_SIZE;
 
 	short int dir = BIT_MASK(frame->_frame->type, 1);
-	frame->payload->_ipayload->extract(frame->payload->instance, device, &dir);
+	frame->payload->_ipayload->extract(frame->payload->instance, nwk_skey, app_skey, &dir);
 	memcpy(pdata, frame->payload->_payload->data, BYTE_SIZE(frame->payload->_payload->size));
 	frame->_frame->size += frame->payload->_payload->size;
 	pdata += frame->payload->_payload->size;
@@ -91,7 +179,7 @@ void MacFrame_extract(
 	memcpy(b0_msg, block_b0, BYTE_SIZE(BLOCK_B0_SIZE));
 	memcpy(b0_msg + BLOCK_B0_SIZE, frame->_frame->data, BYTE_SIZE(frame->_frame->size));
 
-	calculate_mic(device->nwk_skey, b0_msg, BLOCK_B0_SIZE + frame->_frame->size, frame->_frame->mic);
+	calculate_mic(nwk_skey, b0_msg, BLOCK_B0_SIZE + frame->_frame->size, frame->_frame->mic);
 	free(b0_msg);
 	
 	memcpy(pdata, frame->_frame->mic, BYTE_SIZE(MIC_SIZE));
