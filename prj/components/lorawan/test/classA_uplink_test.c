@@ -15,7 +15,7 @@ static FrameHeader fhdr = {
 	.fopts_len = 0
 };
 
-void print_frame_data(Frame* frame, int type)
+static void print_frame_data(Frame* frame, int type)
 {
 	printf("[");
 	for (int i = 0; i < frame->size; i++)
@@ -66,7 +66,6 @@ static void check_cmd_fopts(MacCommand* cmd, short int len, unsigned char* expec
 
 	MacFrame_destroy(frame);
 }
-
 
 TEST_CASE("Link Check Request", "[LinkCheckReq]")
 {
@@ -210,11 +209,6 @@ TEST_CASE("Test RX Timing Setup Answer", "[RXTimingSetupAns]")
 	RXTimingSetupAns_destroy(cmd);
 }
 
-TEST_CASE("Test TX Param Setup Answer", "[TXParamSetupAns]")
-{
-
-}
-
 TEST_CASE("Test Device Time Request Request", "[DeviceTimeReq]")
 {
 	DeviceTimeReq* cmd;
@@ -228,9 +222,4 @@ TEST_CASE("Test Device Time Request Request", "[DeviceTimeReq]")
 	unsigned char expected1[] = {128, 4, 3, 2, 1, 0, 0, 0, 0, 89, 216, 165, 117, 18};
 	check_cmd_frm_payload(cmd->_cmd, sizeof(expected1), expected1);
 	DeviceTimeReq_destroy(cmd);
-}
-
-TEST_CASE("", "")
-{
-
 }

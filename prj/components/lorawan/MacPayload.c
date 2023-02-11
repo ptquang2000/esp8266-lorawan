@@ -1,5 +1,4 @@
 #include "MacPayload.h"
-#include "LoraDevice.h"
 #include "LoraUtil.h"
 
 #define BLOCK_A_SIZE			16
@@ -19,11 +18,31 @@ static unsigned char block_a[BLOCK_A_SIZE] = {
 	0x00, 0x00, 0x00, 0x00
 };
 
+
 ////////////////////////////////////////////////////////////////////////////////
 
 void Payload_extract(Payload* payload)
 {
     
+}
+
+short int Payload_validate(Payload* payload)
+{
+	return -1;
+}
+
+Payload* Payload_create_by_data(short int size, unsigned char* data)
+{
+	Payload* payload = malloc(sizeof(Payload));
+    payload->instance = payload;
+
+	payload->size = size;
+	memcpy(payload->data, data, payload->size);
+
+	payload->_ipayload = malloc(sizeof(IPayload));
+    payload->_ipayload->extract = &Payload_extract;
+
+	return payload;
 }
 
 Payload* Payload_create()
@@ -34,6 +53,7 @@ Payload* Payload_create()
 
 	payload->_ipayload = malloc(sizeof(IPayload));
     payload->_ipayload->extract = &Payload_extract;
+	payload->_ipayload->validate = &Payload_validate;
 
 	return payload;
 }
@@ -264,7 +284,10 @@ void JoinRequestPayload_destroy(JoinRequestPayload* payload)
     free(payload);
 }
 
-JoinRequestPayload* JoinRequestPayload_create(LoraDevice* device)
+JoinRequestPayload* JoinRequestPayload_create(
+	unsigned char* join_eui,
+	unsigned char* dev_eui,
+	unsigned char* dev_nonce)
 {
 	JoinRequestPayload* payload = malloc(sizeof(JoinRequestPayload));
 	payload->instance = payload;
@@ -273,9 +296,9 @@ JoinRequestPayload* JoinRequestPayload_create(LoraDevice* device)
 	payload->dev_eui = malloc(BYTE_SIZE(DEV_EUI_SIZE));
 	payload->dev_nonce = malloc(BYTE_SIZE(DEV_NONCE_SIZE));
 
-	memcpy(payload->join_eui, device->join_eui, BYTE_SIZE(JOIN_EUI_SIZE));
-	memcpy(payload->dev_eui, device->dev_eui, BYTE_SIZE(DEV_EUI_SIZE));
-	memcpy(payload->dev_nonce, device->dev_nonce, BYTE_SIZE(DEV_NONCE_SIZE));
+	memcpy(payload->join_eui, join_eui, BYTE_SIZE(JOIN_EUI_SIZE));
+	memcpy(payload->dev_eui, dev_eui, BYTE_SIZE(DEV_EUI_SIZE));
+	memcpy(payload->dev_nonce, dev_nonce, BYTE_SIZE(DEV_NONCE_SIZE));
 
 	payload->_payload = Payload_create();
     payload->_payload->instance = payload->instance;
@@ -287,6 +310,78 @@ JoinRequestPayload* JoinRequestPayload_create(LoraDevice* device)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+JoinAcceptPayload* JoinAcceptPayload_create_by_payload(Payload* _payload)
+{
+	JoinAcceptPayload* payload = malloc(sizeof(JoinAcceptPayload));
+    payload->instance = payload;
+
+	payload->_payload = _payload;
+	payload->_payload->instance = payload->instance;
+
+	payload->_ipayload = payload->_payload->_ipayload;
+	payload->_ipayload->extract = &JoinAcceptPayload_extract;
+	payload->_ipayload->validate = &JoinAcceptPayload_validate;
+
+	payload->join_nonce = malloc(BYTE_SIZE(JOIN_NONCE_SIZE));
+	payload->net_id = malloc(BYTE_SIZE(NET_ID_SIZE));
+	payload->dev_addr = malloc(BYTE_SIZE(DEV_ADDR_SIZE));
+	payload->dl_settings = malloc(BYTE_SIZE(DLSETTINGS_SIZE));
+	payload->cf_list = malloc(BYTE_SIZE(CFLIST_SIZE));
+	payload->rx_delay = malloc(BYTE_SIZE(RX_DELAY_SIZE));
+
+	return payload;
+}
+
+short int JoinAcceptPayload_validate(JoinAcceptPayload* payload)
+{
+	short int size = payload->_payload->size;
+	if (size < JOIN_NONCE_SIZE + NET_ID_SIZE + DEV_ADDR_SIZE + 
+		DLSETTINGS_SIZE + RX_DELAY_SIZE) 
+	{
+		return INVALID_DATA_SIZE;
+	}
+
+	unsigned char* pdata = payload->_payload->data;
+
+	memcpy(payload->join_nonce, pdata, BYTE_SIZE(JOIN_NONCE_SIZE));
+	size -= JOIN_NONCE_SIZE;
+	pdata += JOIN_NONCE_SIZE;
+
+	memcpy(payload->net_id, pdata, BYTE_SIZE(NET_ID_SIZE));
+	size -= NET_ID_SIZE;
+	pdata += NET_ID_SIZE;
+	
+	memcpy(payload->dev_addr, pdata, BYTE_SIZE(DEV_ADDR_SIZE));
+	size -= DEV_ADDR_SIZE;
+	pdata += DEV_ADDR_SIZE;
+
+	memcpy(payload->dl_settings, pdata, BYTE_SIZE(DLSETTINGS_SIZE));
+	size -= DLSETTINGS_SIZE;
+	pdata += DLSETTINGS_SIZE;
+
+	if (size == RX_DELAY_SIZE)
+	{
+		free(payload->cf_list);
+		payload->cf_list = NULL;
+	}
+	else if (size == RX_DELAY_SIZE + CFLIST_SIZE)
+	{
+		memcpy(payload->cf_list, pdata, BYTE_SIZE(CFLIST_SIZE));
+		pdata += CFLIST_SIZE;
+	}
+
+	memcpy(payload->rx_delay, pdata, BYTE_SIZE(RX_DELAY_SIZE));
+	size -= RX_DELAY_SIZE;
+	pdata += RX_DELAY_SIZE;
+
+	if (size != 0)
+	{
+		return INVALID_DATA_SIZE;
+	}
+	
+	return 0;
+}
 
 void JoinAcceptPayload_set_join_nonce(
 	JoinAcceptPayload* payload, 
@@ -327,19 +422,6 @@ void JoinAcceptPayload_extract(JoinAcceptPayload* payload)
 	memcpy(pdata, payload->rx_delay, BYTE_SIZE(RX_DELAY_SIZE));
 	pdata += RX_DELAY_SIZE;
 	payload->_payload->size += RX_DELAY_SIZE;
-}
-
-void JoinAcceptPayload_destroy(JoinAcceptPayload* payload)
-{
-	free(payload->join_nonce);
-	free(payload->net_id);
-	free(payload->dev_addr);
-	free(payload->rx_delay);
-	free(payload->dl_settings);
-	free(payload->cf_list);
-
-    Payload_destroy(payload->_payload);
-    free(payload);
 }
 
 JoinAcceptPayload* JoinAcceptPayload_create(
@@ -411,8 +493,22 @@ JoinAcceptPayload* JoinAcceptPayload_create(
 
 	payload->_ipayload = payload->_payload->_ipayload;
 	payload->_ipayload->extract = &JoinAcceptPayload_extract;
+	payload->_ipayload->validate = &JoinAcceptPayload_validate;
 
 	return payload;
+}
+
+void JoinAcceptPayload_destroy(JoinAcceptPayload* payload)
+{
+	free(payload->join_nonce);
+	free(payload->net_id);
+	free(payload->dev_addr);
+	free(payload->rx_delay);
+	free(payload->dl_settings);
+	free(payload->cf_list);
+
+    Payload_destroy(payload->_payload);
+    free(payload);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

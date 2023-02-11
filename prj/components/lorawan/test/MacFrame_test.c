@@ -32,7 +32,7 @@ TEST_CASE("Test Join Request", "[lorawan]")
 	short int dev_nonce = 772;
     LoraDevice* device = LoraDevice_create(app_key, app_key, app_key, app_key, join_eui, dev_eui, dev_nonce);
 
-	JoinRequestFrame* frame = JoinRequestFrame_create(device);
+	JoinRequestFrame* frame = JoinRequestFrame_create(device->join_eui, device->dev_eui, device->dev_nonce);
 	frame->_iframe->extract(frame, device->app_key);
 
 	unsigned char expected[] = {0, 3, 3, 3, 3, 1, 1, 1, 1, 2, 2, 2, 2, 4, 4, 4, 4, 4, 3, 12, 81, 205, 202};
@@ -48,10 +48,7 @@ TEST_CASE("Test Confirmed Data Uplink", "[lorawan]")
 {
 	unsigned char nwk_skey[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 	unsigned char app_skey[] = {16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
-	unsigned char dev_addr[] = {4, 3, 2, 1};
 	short int fport = 10;
-
-    LoraDevice* device = LoraDevice_create(dev_addr, nwk_skey, app_skey, nwk_skey, nwk_skey, nwk_skey, 0);
 
 	FrameHeader fhdr = {
 		.dev_addr = {4, 3, 2, 1},

@@ -50,6 +50,7 @@ typedef struct CFList_struct
 typedef struct IPayload_struct
 {
 	void (*extract)();
+	short int (*validate)();
 } IPayload;
 
 typedef struct Payload_struct
@@ -61,6 +62,9 @@ typedef struct Payload_struct
 	void* instance;
 } Payload;
 
+short int Payload_validate(Payload* payload);
+Payload* Payload_create_by_data(short int size, unsigned char* data);
+void Payload_extract(Payload* payload);
 Payload* Payload_create();
 void Payload_destroy(Payload* payload);
 
@@ -93,8 +97,6 @@ typedef struct MacPayload_struct
 	void* instance;
 } MacPayload;
 
-MacPayload* MacPayload_create(FrameHeader* fhdr);
-void MacPayload_destroy(MacPayload* payload);
 void MacPayload_set_fport(MacPayload* payload, short int fport);
 void MacPayload_set_app_payload(
 	MacPayload* payload, 
@@ -105,6 +107,13 @@ void MacPayload_set_commands_to_payload(
 	MacPayload* payload, 
 	int len, 
 	MacCommand** mac_commands);
+void MacPayload_extract(
+	MacPayload* payload, 
+	unsigned char* nwk_skey,
+	unsigned char* app_skey,
+	short int* pdir);
+void MacPayload_destroy(MacPayload* payload);
+MacPayload* MacPayload_create(FrameHeader* fhdr);
 
 typedef struct JoinRequestPayload_struct
 {
@@ -117,8 +126,12 @@ typedef struct JoinRequestPayload_struct
 	void* instance;
 } JoinRequestPayload;
 
-JoinRequestPayload* JoinRequestPayload_create(LoraDevice* device);
+void JoinRequestPayload_extract(JoinRequestPayload* payload);
 void JoinRequestPayload_destroy(JoinRequestPayload* payload);
+JoinRequestPayload* JoinRequestPayload_create(
+	unsigned char* join_eui,
+	unsigned char* dev_eui,
+	unsigned char* dev_nonce);
 
 typedef struct JoinAcceptPayload_struct
 {
@@ -134,6 +147,10 @@ typedef struct JoinAcceptPayload_struct
 	void* instance;
 } JoinAcceptPayload;
 
+void JoinAcceptPayload_extract(JoinAcceptPayload* payload);
+short int JoinAcceptPayload_validate(JoinAcceptPayload* payload);
+void JoinAcceptPayload_destroy(JoinAcceptPayload* payload);
+JoinAcceptPayload* JoinAcceptPayload_create_by_payload(Payload* payload);
 JoinAcceptPayload* JoinAcceptPayload_create(
 	unsigned int join_nonce, 
 	unsigned char* net_id, 
@@ -141,7 +158,6 @@ JoinAcceptPayload* JoinAcceptPayload_create(
 	DLSettings* dl_settings, 
 	short int rx_delay, 
 	CFList* cf_list);
-void JoinAcceptPayload_destroy(JoinAcceptPayload* payload);
 
 
 #endif // MAC_PAYLOAD_h

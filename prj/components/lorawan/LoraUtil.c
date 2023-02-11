@@ -53,3 +53,23 @@ void aes128_decrypt(
 	}
 	mbedtls_aes_free(&aes);
 }
+
+
+void debug_print_array(int size, unsigned char* data, int type)
+{
+	printf("\n[");
+	for (int i = 0; i < size; i++)
+	{
+		if (type == 0)
+		{
+			printf("%d", data[i]);
+		}
+		else
+		{
+			printf("%02x", data[i]);
+
+		}
+		if (i == size - 1) printf("]\n");
+		else printf(" ");
+	}
+}

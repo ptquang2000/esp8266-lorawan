@@ -12,12 +12,73 @@
 
 #define BLOCK_B0_SIZE			16
 
-static unsigned char block_b0[BLOCK_B0_SIZE] = {0x49, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+static unsigned char block_b0[BLOCK_B0_SIZE] = {
+	0x49, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 
 void Frame_extract(Frame* frame)
 {
+}
+
+short int Frame_validate(Frame* frame)
+{
+	if (frame->size < MINIMUM_PHYPAYLOAD_SIZE)
+	{
+		return INVALID_DATA_SIZE;
+	}
+	return 0;
+}
+
+short int Frame_get_version(Frame* frame)
+{
+	return GET_BITS((*frame->mhdr), FRAME_VERSION_BITS, FRAME_VERSION_OFFSET);
+}
+
+Frame* Frame_create_by_data(short int size, unsigned char* data)
+{
+	Frame* frame = malloc(sizeof(Frame));
+	frame->instance = frame;
+
+	frame->mhdr = malloc(BYTE_SIZE(MHDR_SIZE));
+
+	frame->_iframe = malloc(sizeof(IFrame));
+	frame->_iframe->extract = &Frame_extract;
+	frame->_iframe->validate = &Frame_validate;
+
+	ESP_ERROR_CHECK(size > MAXIMUM_PHYPAYLOAD_SIZE);
+	frame->size = size;
+	memcpy(frame->data, data, BYTE_SIZE(size));
+
+	ESP_ERROR_CHECK(frame->size < MINIMUM_PHYPAYLOAD_SIZE);
+
+	memcpy(frame->mhdr, frame->data, BYTE_SIZE(MHDR_SIZE));
+	frame->type = (FrameType)GET_BITS((*frame->mhdr), FRAME_TYPE_BITS, FRAME_TYPE_OFFSET);
+
+	return frame;
+}
+
+Frame* Frame_create(FrameType frame_type)
+{
+	Frame* frame = malloc(sizeof(Frame));
+	frame->instance = frame;
+
+	frame->mhdr = malloc(BYTE_SIZE(MHDR_SIZE));
+	frame->mic = malloc(BYTE_SIZE(MIC_SIZE));
+
+	frame->_iframe = malloc(sizeof(IFrame));
+	frame->_iframe->extract = &Frame_extract;
+	frame->_iframe->validate = &Frame_validate;
+
+	frame->type = frame_type;
+	memset(frame->mhdr, (frame_type << 5) | LORA_WAN_R1, MHDR_SIZE);
+	frame->size = 0;
+
+	return frame;
 }
 
 void Frame_destroy(Frame* frame)
@@ -29,15 +90,16 @@ void Frame_destroy(Frame* frame)
 	free(frame);
 }
 
-short int Frame_validation(
-	Frame* frame,
+////////////////////////////////////////////////////////////////////////////////
+
+short int MacFrame_validate(
+	MacFrame* frame,
 	short int dir,
 	unsigned char* dev_addr, 
 	short int frame_counter,
-	unsigned char* nwk_skey, 
-	FrameHeader* fhdr)
+	unsigned char* nwk_skey)
 {
-	short int size_no_mic = frame->size - MIC_SIZE;
+	short int size_no_mic = frame->_frame->size - MIC_SIZE;
 	memset(
 		&block_b0[BLOCK_B_DIR_BYTE], 
 		BIT_MASK(dir, 1), 
@@ -62,79 +124,18 @@ short int Frame_validation(
 	// TODO: check size < MAXIMUM_MACPAYLOAD_SIZE
 	unsigned char* b0_msg = malloc(BYTE_SIZE(BLOCK_B0_SIZE + size_no_mic));
 	memcpy(b0_msg, block_b0, BYTE_SIZE(BLOCK_B0_SIZE));
-	memcpy(b0_msg + BLOCK_B0_SIZE, frame->data, BYTE_SIZE(size_no_mic));
+	memcpy(b0_msg + BLOCK_B0_SIZE, frame->_frame->data, BYTE_SIZE(size_no_mic));
 
 	unsigned char mic[MIC_SIZE];
 	calculate_mic(nwk_skey, b0_msg, BLOCK_B0_SIZE + size_no_mic, mic);
-	if (memcmp(mic, frame->mic, MIC_SIZE) != 0)
-	{
-		return -1;
-	}
+	free(b0_msg);
 
-	short int type = GET_BITS((*frame->mhdr), FRAME_TYPE_BITS, FRAME_TYPE_OFFSET);
-	short int version = GET_BITS((*frame->mhdr), FRAME_VERSION_BITS, FRAME_VERSION_OFFSET);
-	
-	// TODO: only support LORA_WAN_R1 first
-	if (version != LORA_WAN_R1) return -1;
+	if (memcmp(mic, frame->_frame->mic, MIC_SIZE) != 0) return INVALID_MIC;
 
-	if (type < MIN_FRAMETYPE || type > MAX_FRAMETYPE) return -1;
-	else frame->type = (FrameType)type;
-	
-	unsigned char* pdata = frame->data + MHDR_SIZE;
-
-	memcpy(fhdr->dev_addr, pdata, BYTE_SIZE(DEV_ADDR_SIZE));
-	pdata += DEV_ADDR_SIZE;
-
+	Payload* payload = Payload_create();
 
 	return 0;
 }
-
-Frame* Frame_create_by_data(short int size, unsigned char* data)
-{
-	Frame* frame = malloc(sizeof(Frame));
-	frame->instance = frame;
-
-	frame->mhdr = malloc(BYTE_SIZE(MHDR_SIZE));
-	frame->mic = malloc(BYTE_SIZE(MIC_SIZE));
-
-	frame->_iframe = malloc(sizeof(IFrame));
-	frame->_iframe->extract = &Frame_extract;
-
-	ESP_ERROR_CHECK(size > MAXIMUM_PHYPAYLOAD_SIZE);
-	frame->size = size;
-	memcpy(frame->data, data, BYTE_SIZE(size));
-
-	if (frame->size < MINIMUM_PHYPAYLOAD_SIZE)
-	{
-		Frame_destroy(frame);
-		return NULL;
-	}
-
-	memcpy(frame->mhdr, frame->data, BYTE_SIZE(MHDR_SIZE));
-	memcpy(frame->mic, frame->data + (frame->size - MIC_SIZE), BYTE_SIZE(MIC_SIZE));
-
-	return frame;
-}
-
-Frame* Frame_create(FrameType frame_type)
-{
-	Frame* frame = malloc(sizeof(Frame));
-	frame->instance = frame;
-
-	frame->mhdr = malloc(BYTE_SIZE(MHDR_SIZE));
-	frame->mic = malloc(BYTE_SIZE(MIC_SIZE));
-
-	frame->_iframe = malloc(sizeof(IFrame));
-	frame->_iframe->extract = &Frame_extract;
-
-	frame->type = frame_type;
-	memset(frame->mhdr, (frame_type << 5) | LORA_WAN_R1, MHDR_SIZE);
-	frame->size = 0;
-
-	return frame;
-}
-
-////////////////////////////////////////////////////////////////////////////////
 
 void MacFrame_extract(
 	MacFrame* frame,
@@ -187,14 +188,6 @@ void MacFrame_extract(
 	pdata += MIC_SIZE;
 }
 
-void MacFrame_destroy(MacFrame* frame)
-{
-	MacPayload_destroy(frame->payload);
-	
-	Frame_destroy(frame->_frame);
-	free(frame);
-}
-
 MacFrame* MacFrame_create(FrameType frame_type, FrameHeader* fhdr)
 {
 	MacFrame* frame = malloc(sizeof(MacFrame));
@@ -209,6 +202,14 @@ MacFrame* MacFrame_create(FrameType frame_type, FrameHeader* fhdr)
 	frame->payload = MacPayload_create(fhdr);
 
 	return frame;
+}
+
+void MacFrame_destroy(MacFrame* frame)
+{
+	MacPayload_destroy(frame->payload);
+	
+	Frame_destroy(frame->_frame);
+	free(frame);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -241,7 +242,10 @@ void JoinRequestFrame_destroy(JoinRequestFrame* frame)
 	free(frame);
 }
 
-JoinRequestFrame* JoinRequestFrame_create(LoraDevice* device)
+JoinRequestFrame* JoinRequestFrame_create(
+	unsigned char* join_eui,
+	unsigned char* dev_eui,
+	unsigned char* dev_nonce)
 {
 	JoinRequestFrame* frame = malloc(sizeof(JoinRequestFrame));
 	frame->instance = frame;
@@ -252,12 +256,60 @@ JoinRequestFrame* JoinRequestFrame_create(LoraDevice* device)
 	frame->_iframe = frame->_frame->_iframe;
 	frame->_iframe->extract = &JoinRequestFrame_extract;
 
-	frame->payload = JoinRequestPayload_create(device);
+	frame->payload = JoinRequestPayload_create(join_eui, dev_eui, dev_nonce);
 	
 	return frame;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+short int JoinAcceptFrame_validate(
+	JoinAcceptFrame* frame,
+	unsigned char* app_key)
+{
+	short int result = 0;
+	unsigned char* data = malloc(BYTE_SIZE(frame->_frame->size));
+	memcpy(data, frame->_frame->data, MHDR_SIZE);
+	aes128_encrypt(
+		app_key, 
+		frame->_frame->data + MHDR_SIZE, 
+		data + MHDR_SIZE, 
+		frame->_frame->size - MHDR_SIZE);
+
+	unsigned char mic[MIC_SIZE];
+	calculate_mic(app_key, data, frame->_frame->size - MIC_SIZE, mic);
+	if (memcmp(data + frame->_frame->size - MIC_SIZE, mic, MIC_SIZE) != 0) 
+	{
+		result = INVALID_MIC;
+	}
+
+	if (result == 0)
+	{
+		Payload* _payload = Payload_create_by_data(
+			frame->_frame->size - MHDR_SIZE - MIC_SIZE, 
+			data + MHDR_SIZE);
+		frame->payload = JoinAcceptPayload_create_by_payload(_payload);
+		result = frame->payload->_ipayload->validate(frame->payload);
+	}
+
+	free(data);
+	return result;
+}
+
+JoinAcceptFrame* JoinAcceptFrame_create_by_frame(Frame* i_frame)
+{
+	JoinAcceptFrame* frame = malloc(sizeof(JoinAcceptFrame));
+	frame->instance = frame;
+
+	frame->_frame = i_frame;
+	frame->_frame->instance = frame->instance;
+
+	frame->_iframe = frame->_frame->_iframe;
+	frame->_iframe->extract = &JoinAcceptFrame_extract;
+	frame->_iframe->validate = &JoinAcceptFrame_validate;
+
+	return frame;
+}
 
 void JoinAcceptFrame_extract(JoinAcceptFrame* frame, unsigned char* app_key)
 {
@@ -285,19 +337,11 @@ void JoinAcceptFrame_extract(JoinAcceptFrame* frame, unsigned char* app_key)
 	free(data);
 }
 
-void JoinAcceptFrame_destroy(JoinAcceptFrame* frame)
-{
-	JoinAcceptPayload_destroy(frame->payload);
-	
-	Frame_destroy(frame->_frame);
-	free(frame);
-}
-
 JoinAcceptFrame* JoinAcceptFrame_create(
 	unsigned int join_nonce, 
 	unsigned char* net_id, 
 	unsigned char* dev_addr, 
-	DLSettings* setting, 
+	DLSettings* dl_settings, 
 	short int rx_delay, 
 	CFList* cf_list)
 {
@@ -309,8 +353,17 @@ JoinAcceptFrame* JoinAcceptFrame_create(
 
 	frame->_iframe = frame->_frame->_iframe;
 	frame->_iframe->extract = &JoinAcceptFrame_extract;
+	frame->_iframe->validate = &JoinAcceptFrame_validate;
 	
-	frame->payload = JoinAcceptPayload_create(join_nonce, net_id, dev_addr, setting, rx_delay, cf_list);
+	frame->payload = JoinAcceptPayload_create(join_nonce, net_id, dev_addr, dl_settings, rx_delay, cf_list);
 
 	return frame;
+}
+
+void JoinAcceptFrame_destroy(JoinAcceptFrame* frame)
+{
+	JoinAcceptPayload_destroy(frame->payload);
+	
+	Frame_destroy(frame->_frame);
+	free(frame);
 }

@@ -21,7 +21,10 @@ void LoraDevice_increase_dev_nonce(LoraDevice* device)
 
 void LoraDevice_send_join_request(LoraDevice* device)
 {
-	JoinRequestFrame* frame = JoinRequestFrame_create(device);
+	JoinRequestFrame* frame = JoinRequestFrame_create(
+		device->join_eui,
+		device->dev_eui,
+		device->dev_nonce);
 	frame->_iframe->extract(frame->instance, device->app_key);
 	JoinRequestFrame_destroy(frame);
 	LoraDevice_increase_dev_nonce(device);
