@@ -2,6 +2,7 @@
 #define MAC_COMMAND_H
 
 #include "MacCommandDef.h"
+#include "LoraUtil.h"
 
 
 typedef enum MacCommandType_enum
@@ -34,8 +35,8 @@ typedef struct MacCommand_struct
     MacCommandType type; 
     MacCommandCid cid;
 
-    short int size;
-    unsigned char data[MAC_COMMAND_MAX_SIZE];
+    uint16_t size;
+    uint8_t data[MAC_COMMAND_MAX_SIZE];
 
     IMacCommand* _icmd;
     void* instance;
@@ -58,8 +59,8 @@ LinkCheckReq* LinkCheckReq_create();
 
 typedef struct LinkCheckAns_struct
 {
-    unsigned char* margin;
-    unsigned char* gateway_cnt;
+    uint8_t* margin;
+    uint8_t* gateway_cnt;
 
     IMacCommand* _icmd;
     MacCommand* _cmd;
@@ -68,9 +69,9 @@ typedef struct LinkCheckAns_struct
 
 typedef struct LinkAdrReq_struct
 {
-    unsigned char* datarate_txpower;
-    unsigned char* channel_mask;
-    unsigned char* redundancy;  
+    uint8_t* datarate_txpower;
+    uint8_t* channel_mask;
+    uint8_t* redundancy;  
 
     IMacCommand* _icmd;
     MacCommand* _cmd;
@@ -79,7 +80,7 @@ typedef struct LinkAdrReq_struct
 
 typedef struct LinkAdrAns_struct
 {
-    unsigned char* status;
+    uint8_t* status;
 
     IMacCommand* _icmd;
     MacCommand* _cmd;
@@ -91,7 +92,7 @@ LinkAdrAns* LinkAdrAns_create(ADRStatus* status);
 
 typedef struct DutyCycleReq_struct
 {
-    unsigned char* duty_cycle;
+    uint8_t* duty_cycle;
 
     IMacCommand* _icmd;
     MacCommand* _cmd;
@@ -105,8 +106,8 @@ DutyCycleAns* DutyCycleAns_create();
 
 typedef struct RxParamSetupReq_struct
 {
-    unsigned char* downlink_settings;
-    unsigned char* frequency;
+    uint8_t* downlink_settings;
+    uint8_t* frequency;
 
     IMacCommand* _icmd;
     MacCommand* _cmd;
@@ -115,7 +116,7 @@ typedef struct RxParamSetupReq_struct
 
 typedef struct RxParamSetupAns_struct
 {
-    unsigned char* status;
+    uint8_t* status;
 
     IMacCommand* _icmd;
     MacCommand* _cmd;
@@ -129,8 +130,8 @@ typedef EmptyCommand DevStatusReq;
 
 typedef struct DevStatusAns_struct
 {
-    unsigned char* battery;
-    unsigned char* radio_status;
+    uint8_t* battery;
+    uint8_t* radio_status;
 
     IMacCommand* _icmd;
     MacCommand* _cmd;
@@ -142,9 +143,9 @@ DevStatusAns* DevStatusAns_create(DeviceStatus* status);
 
 typedef struct NewChannelReq_struct
 {
-    unsigned char* channel_index;
-    unsigned char* frequency;
-    unsigned char* data_rate_range;
+    uint8_t* channel_index;
+    uint8_t* frequency;
+    uint8_t* data_rate_range;
 
     IMacCommand* _icmd;
     MacCommand* _cmd;
@@ -153,7 +154,7 @@ typedef struct NewChannelReq_struct
 
 typedef struct NewChannelAns_struct
 {
-    unsigned char* status;
+    uint8_t* status;
 
     IMacCommand* _icmd;
     MacCommand* _cmd;
@@ -165,8 +166,8 @@ NewChannelAns* NewChannelAns_create(NewChannelStatus* status);
 
 typedef struct DownlinkChannelReq_struct
 {
-    unsigned char* channel_index;
-    unsigned char* frequency;
+    uint8_t* channel_index;
+    uint8_t* frequency;
 
     IMacCommand* _icmd;
     MacCommand* _cmd;
@@ -175,7 +176,7 @@ typedef struct DownlinkChannelReq_struct
 
 typedef struct DownlinkChannelAns_struct
 {
-    unsigned char* status;
+    uint8_t* status;
 
     IMacCommand* _icmd;
     MacCommand* _cmd;
@@ -187,7 +188,7 @@ void DownlinkChannelAns_destroy(DownlinkChannelAns* cmd);
 
 typedef struct RXTimingSetupReq_struct
 {
-    unsigned char* rx_timing_settings; 
+    uint8_t* rx_timing_settings; 
 
     IMacCommand* _icmd;
     MacCommand* _cmd;
@@ -206,8 +207,8 @@ DeviceTimeReq* DeviceTimeReq_create();
 
 typedef struct DeviceTimeAns_struct
 {
-    unsigned char* seconds;
-    unsigned char* fractional_second;
+    uint8_t* seconds;
+    uint8_t* fractional_second;
 
     IMacCommand* _icmd;
     MacCommand* _cmd;

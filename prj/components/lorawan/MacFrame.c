@@ -1,5 +1,4 @@
 #include "MacFrame.h"
-#include "LoraUtil.h"
 
 #define BLOCK_B_DIR_BYTE		5
 #define BLOCK_B_DIR_SIZE		1
@@ -12,7 +11,7 @@
 
 #define BLOCK_B0_SIZE			16
 
-static unsigned char block_b0[BLOCK_B0_SIZE] = {
+static uint8_t block_b0[BLOCK_B0_SIZE] = {
 	0x49, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00,
@@ -25,7 +24,7 @@ void Frame_extract(Frame* frame)
 {
 }
 
-short int Frame_validate(Frame* frame)
+uint16_t Frame_validate(Frame* frame)
 {
 	if (frame->size < MINIMUM_PHYPAYLOAD_SIZE)
 	{
@@ -34,12 +33,12 @@ short int Frame_validate(Frame* frame)
 	return 0;
 }
 
-short int Frame_get_version(Frame* frame)
+uint16_t Frame_get_version(Frame* frame)
 {
 	return GET_BITS((*frame->mhdr), FRAME_VERSION_BITS, FRAME_VERSION_OFFSET);
 }
 
-Frame* Frame_create_by_data(short int size, unsigned char* data)
+Frame* Frame_create_by_data(uint16_t size, uint8_t* data)
 {
 	Frame* frame = malloc(sizeof(Frame));
 	frame->instance = frame;
@@ -93,16 +92,16 @@ void Frame_destroy(Frame* frame)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-short int MacFrame_validate(
+uint16_t MacFrame_validate(
 	MacFrame* frame,
-	unsigned char* nwk_skey,
-	unsigned char* app_skey,
-	short int direction,
-	unsigned char* dev_addr,
-	short int frame_counter)
+	uint8_t* nwk_skey,
+	uint8_t* app_skey,
+	uint16_t direction,
+	uint8_t* dev_addr,
+	uint16_t frame_counter)
 {
-	short int result = 0;
-	short int size_no_mic = frame->_frame->size - MIC_SIZE;
+	uint16_t result = 0;
+	uint16_t size_no_mic = frame->_frame->size - MIC_SIZE;
 	memset(
 		&block_b0[BLOCK_B_DIR_BYTE], 
 		direction & 1, 
@@ -125,11 +124,11 @@ short int MacFrame_validate(
 	); 
 
 	// TODO: check size < MAXIMUM_MACPAYLOAD_SIZE
-	unsigned char* b0_msg = malloc(BYTE_SIZE(BLOCK_B0_SIZE + size_no_mic));
+	uint8_t* b0_msg = malloc(BYTE_SIZE(BLOCK_B0_SIZE + size_no_mic));
 	memcpy(b0_msg, block_b0, BYTE_SIZE(BLOCK_B0_SIZE));
 	memcpy(b0_msg + BLOCK_B0_SIZE, frame->_frame->data, BYTE_SIZE(size_no_mic));
 
-	unsigned char mic[MIC_SIZE];
+	uint8_t mic[MIC_SIZE];
 	calculate_mic(nwk_skey, b0_msg, BLOCK_B0_SIZE + size_no_mic, mic);
 	free(b0_msg);
 
@@ -171,11 +170,11 @@ MacFrame* MacFrame_create_by_frame(Frame* _frame)
 
 void MacFrame_extract(
 	MacFrame* frame,
-	unsigned char* nwk_skey,
-	unsigned char* app_skey,
-	short int direction)
+	uint8_t* nwk_skey,
+	uint8_t* app_skey,
+	uint16_t direction)
 {
-	unsigned char* pdata = frame->_frame->data;
+	uint8_t* pdata = frame->_frame->data;
 
 	memcpy(pdata, frame->_frame->mhdr, BYTE_SIZE(MHDR_SIZE));
 	frame->_frame->size += MHDR_SIZE;
@@ -197,7 +196,7 @@ void MacFrame_extract(
 		BYTE_SIZE(BLOCK_B_DEV_ADDR_SIZE)
 	);
 	memcpy(
-		&block_b0[BLOCK_B_FCNT_BYTE + FRAME_COUNTER_SIZE], 
+		&block_b0[BLOCK_B_FCNT_BYTE], 
 		&frame->payload->fhdr->frame_counter, 
 		BYTE_SIZE(FRAME_COUNTER_SIZE)
 	); 
@@ -208,7 +207,7 @@ void MacFrame_extract(
 	); 
 
 	// TODO: check size < MAXIMUM_MACPAYLOAD_SIZE
-	unsigned char* b0_msg = malloc(BYTE_SIZE(BLOCK_B0_SIZE + frame->_frame->size));
+	uint8_t* b0_msg = malloc(BYTE_SIZE(BLOCK_B0_SIZE + frame->_frame->size));
 	memcpy(b0_msg, block_b0, BYTE_SIZE(BLOCK_B0_SIZE));
 	memcpy(b0_msg + BLOCK_B0_SIZE, frame->_frame->data, BYTE_SIZE(frame->_frame->size));
 
@@ -247,9 +246,9 @@ void MacFrame_destroy(MacFrame* frame)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void JoinRequestFrame_extract(JoinRequestFrame* frame, unsigned char* app_key)
+void JoinRequestFrame_extract(JoinRequestFrame* frame, uint8_t* app_key)
 {
-	unsigned char* pdata = frame->_frame->data;
+	uint8_t* pdata = frame->_frame->data;
 
 	memcpy(pdata, frame->_frame->mhdr, BYTE_SIZE(MHDR_SIZE));
 	frame->_frame->size += MHDR_SIZE;
@@ -276,9 +275,9 @@ void JoinRequestFrame_destroy(JoinRequestFrame* frame)
 }
 
 JoinRequestFrame* JoinRequestFrame_create(
-	unsigned char* join_eui,
-	unsigned char* dev_eui,
-	unsigned char* dev_nonce)
+	uint8_t* join_eui,
+	uint8_t* dev_eui,
+	uint8_t* dev_nonce)
 {
 	JoinRequestFrame* frame = malloc(sizeof(JoinRequestFrame));
 	frame->instance = frame;
@@ -296,12 +295,12 @@ JoinRequestFrame* JoinRequestFrame_create(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-short int JoinAcceptFrame_validate(
+uint16_t JoinAcceptFrame_validate(
 	JoinAcceptFrame* frame,
-	unsigned char* app_key)
+	uint8_t* app_key)
 {
-	short int result = 0;
-	unsigned char* data = malloc(BYTE_SIZE(frame->_frame->size));
+	uint16_t result = 0;
+	uint8_t* data = malloc(BYTE_SIZE(frame->_frame->size));
 	memcpy(data, frame->_frame->data, MHDR_SIZE);
 	aes128_encrypt(
 		app_key, 
@@ -309,7 +308,7 @@ short int JoinAcceptFrame_validate(
 		data + MHDR_SIZE, 
 		frame->_frame->size - MHDR_SIZE);
 
-	unsigned char mic[MIC_SIZE];
+	uint8_t mic[MIC_SIZE];
 	calculate_mic(app_key, data, frame->_frame->size - MIC_SIZE, mic);
 	if (memcmp(data + frame->_frame->size - MIC_SIZE, mic, MIC_SIZE) != 0) 
 	{
@@ -346,11 +345,11 @@ JoinAcceptFrame* JoinAcceptFrame_create_by_frame(Frame* i_frame)
 	return frame;
 }
 
-void JoinAcceptFrame_extract(JoinAcceptFrame* frame, unsigned char* app_key)
+void JoinAcceptFrame_extract(JoinAcceptFrame* frame, uint8_t* app_key)
 {
-	unsigned char* data = malloc(BYTE_SIZE(MAXIMUM_MACPAYLOAD_SIZE));
+	uint8_t* data = malloc(BYTE_SIZE(MAXIMUM_MACPAYLOAD_SIZE));
 	memset(data, 0x0, BYTE_SIZE(MAXIMUM_MACPAYLOAD_SIZE));
-	unsigned char* pdata = data;
+	uint8_t* pdata = data;
 
 	memcpy(pdata, frame->_frame->mhdr, BYTE_SIZE(MHDR_SIZE));
 	frame->_frame->size += MHDR_SIZE;
@@ -373,11 +372,11 @@ void JoinAcceptFrame_extract(JoinAcceptFrame* frame, unsigned char* app_key)
 }
 
 JoinAcceptFrame* JoinAcceptFrame_create(
-	unsigned int join_nonce, 
-	unsigned char* net_id, 
-	unsigned char* dev_addr, 
+	uint32_t join_nonce, 
+	uint8_t* net_id, 
+	uint8_t* dev_addr, 
 	DLSettings* dl_settings, 
-	short int rx_delay, 
+	uint16_t rx_delay, 
 	CFList* cf_list)
 {
 	JoinAcceptFrame* frame = malloc(sizeof(JoinAcceptFrame));

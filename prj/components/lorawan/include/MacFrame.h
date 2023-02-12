@@ -31,27 +31,27 @@ typedef enum FrameType_enum
 typedef struct IFrame_struct
 {
 	void (*extract)();
-	short int (*validate)();
+	uint16_t (*validate)();
 } IFrame;
 
 typedef struct Frame_struct
 {
 	FrameType type;
-	unsigned char* mhdr;
-	unsigned char* mic;
+	uint8_t* mhdr;
+	uint8_t* mic;
 
-	short int size;
-	unsigned char data[MAXIMUM_PHYPAYLOAD_SIZE];
+	uint16_t size;
+	uint8_t data[MAXIMUM_PHYPAYLOAD_SIZE];
 
 	IFrame* _iframe;
 	void* instance;
 } Frame;
 
-short int Frame_get_version(Frame* frame);
-short int Frame_validate(Frame* frame);
+uint16_t Frame_get_version(Frame* frame);
+uint16_t Frame_validate(Frame* frame);
 void Frame_extract(Frame* frame);
 void Frame_destroy(Frame* frame);
-Frame* Frame_create_by_data(short int size, unsigned char* data);
+Frame* Frame_create_by_data(uint16_t size, uint8_t* data);
 Frame* Frame_create(FrameType frame_type);
 
 typedef struct MacFrame_struct
@@ -63,19 +63,19 @@ typedef struct MacFrame_struct
 	void* instance;
 } MacFrame;
 
-short int MacFrame_validate(
+uint16_t MacFrame_validate(
 	MacFrame* frame,
-	unsigned char* nwk_skey,
-	unsigned char* app_skey,
-	short int direction,
-	unsigned char* dev_addr, 
-	short int frame_counter);
+	uint8_t* nwk_skey,
+	uint8_t* app_skey,
+	uint16_t direction,
+	uint8_t* dev_addr, 
+	uint16_t frame_counter);
 MacFrame* MacFrame_create_by_frame(Frame* _frame);
 void MacFrame_extract(
 	MacFrame* frame,
-	unsigned char* nwk_skey,
-	unsigned char* app_skey,
-	short int direction);
+	uint8_t* nwk_skey,
+	uint8_t* app_skey,
+	uint16_t direction);
 void MacFrame_destroy(MacFrame* frame);
 MacFrame* MacFrame_create(FrameType frame_type, FrameHeader* fhdr);
 
@@ -88,12 +88,12 @@ typedef struct JoinRequestFrame_struct
 	void* instance;
 } JoinRequestFrame;
 
-void JoinRequestFrame_extract(JoinRequestFrame* frame, unsigned char* app_key);
+void JoinRequestFrame_extract(JoinRequestFrame* frame, uint8_t* app_key);
 void JoinRequestFrame_destroy(JoinRequestFrame* frame);
 JoinRequestFrame* JoinRequestFrame_create(
-	unsigned char* join_eui,
-	unsigned char* dev_eui,
-	unsigned char* dev_nonce);
+	uint8_t* join_eui,
+	uint8_t* dev_eui,
+	uint8_t* dev_nonce);
 
 typedef struct JoinAcceptFrame_struct
 {
@@ -104,16 +104,16 @@ typedef struct JoinAcceptFrame_struct
 	void* instance;
 } JoinAcceptFrame;
 
-short int JoinAcceptFrame_validate(JoinAcceptFrame* frame, unsigned char* app_key);
-void JoinAcceptFrame_extract(JoinAcceptFrame* frame, unsigned char* app_key);
+uint16_t JoinAcceptFrame_validate(JoinAcceptFrame* frame, uint8_t* app_key);
+void JoinAcceptFrame_extract(JoinAcceptFrame* frame, uint8_t* app_key);
 void JoinAcceptFrame_destroy(JoinAcceptFrame* frame);
 JoinAcceptFrame* JoinAcceptFrame_create_by_frame(Frame* i_frame);
 JoinAcceptFrame* JoinAcceptFrame_create(
-	unsigned int join_nonce, 
-	unsigned char* net_id, 
-	unsigned char* dev_addr, 
+	uint32_t join_nonce, 
+	uint8_t* net_id, 
+	uint8_t* dev_addr, 
 	DLSettings* setting, 
-	short int rx_delay, 
+	uint16_t rx_delay, 
 	CFList* cf_list);
 
 

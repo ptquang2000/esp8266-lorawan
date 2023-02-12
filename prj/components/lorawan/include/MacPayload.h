@@ -40,47 +40,47 @@
 
 typedef struct CFList_struct
 {
-	unsigned int fre_ch3;
-	unsigned int fre_ch4;
-	unsigned int fre_ch5;
-	unsigned int fre_ch6;
-	unsigned int fre_ch7;
+	uint32_t fre_ch3;
+	uint32_t fre_ch4;
+	uint32_t fre_ch5;
+	uint32_t fre_ch6;
+	uint32_t fre_ch7;
 } CFList;
 
 typedef struct IPayload_struct
 {
 	void (*extract)();
-	short int (*validate)();
+	uint16_t (*validate)();
 } IPayload;
 
 typedef struct Payload_struct
 {
-	short int size;
-	unsigned char data[MAXIMUM_MACPAYLOAD_SIZE];
+	uint16_t size;
+	uint8_t data[MAXIMUM_MACPAYLOAD_SIZE];
 	
 	IPayload* _ipayload;
 	void* instance;
 } Payload;
 
-short int Payload_validate(Payload* payload);
-Payload* Payload_create_by_data(short int size, unsigned char* data);
+uint16_t Payload_validate(Payload* payload);
+Payload* Payload_create_by_data(uint16_t size, uint8_t* data);
 void Payload_extract(Payload* payload);
 Payload* Payload_create();
 void Payload_destroy(Payload* payload);
 
 typedef struct FrameHeader_struct
 {
-	unsigned char dev_addr[DEV_ADDR_SIZE];
+	uint8_t dev_addr[DEV_ADDR_SIZE];
 	
-	short int is_adr;
-	short int is_adr_ack_req;
-	short int is_ack;
-	short int fpending;
-	short int fopts_len;
+	uint16_t is_adr;
+	uint16_t is_adr_ack_req;
+	uint16_t is_ack;
+	uint16_t fpending;
+	uint16_t fopts_len;
 
-	short int frame_counter;
+	uint16_t frame_counter;
 
-	unsigned char fopts[MAXIMUM_FRAME_OPTIONS_SIZE];
+	uint8_t fopts[MAXIMUM_FRAME_OPTIONS_SIZE];
 } FrameHeader;
 
 void FrameHeader_insert_cmd(FrameHeader* fhdr, MacCommand* cmd);
@@ -88,43 +88,43 @@ void FrameHeader_insert_cmd(FrameHeader* fhdr, MacCommand* cmd);
 typedef struct MacPayload_struct
 {
 	FrameHeader* fhdr;
-	unsigned char* fport;
-	unsigned char* frm_payload;
-	short int frm_payload_len;
+	uint8_t* fport;
+	uint8_t* frm_payload;
+	uint16_t frm_payload_len;
 
 	IPayload* _ipayload;
 	Payload* _payload;
 	void* instance;
 } MacPayload;
 
-short int MacPayload_validate(MacPayload* payload, 
-	unsigned char* nwk_skey,
-	unsigned char* app_skey,
-	short int direction);
-void MacPayload_set_fport(MacPayload* payload, short int fport);
+uint16_t MacPayload_validate(MacPayload* payload, 
+	uint8_t* nwk_skey,
+	uint8_t* app_skey,
+	uint16_t direction);
+void MacPayload_set_fport(MacPayload* payload, uint16_t fport);
 void MacPayload_set_app_payload(
 	MacPayload* payload, 
-	short int fport, 
+	uint16_t fport, 
 	int len,
-	unsigned char* app_payload);
+	uint8_t* app_payload);
 void MacPayload_set_commands_to_payload(
 	MacPayload* payload, 
 	int len, 
 	MacCommand** mac_commands);
 void MacPayload_extract(
 	MacPayload* payload, 
-	unsigned char* nwk_skey,
-	unsigned char* app_skey,
-	short int direction);
+	uint8_t* nwk_skey,
+	uint8_t* app_skey,
+	uint16_t direction);
 void MacPayload_destroy(MacPayload* payload);
 MacPayload* MacPayload_create_by_payload(Payload* payload);
 MacPayload* MacPayload_create(FrameHeader* fhdr);
 
 typedef struct JoinRequestPayload_struct
 {
-	unsigned char* join_eui;
-	unsigned char* dev_eui;
-	unsigned char* dev_nonce;
+	uint8_t* join_eui;
+	uint8_t* dev_eui;
+	uint8_t* dev_nonce;
 
 	IPayload* _ipayload;
 	Payload* _payload;
@@ -134,18 +134,18 @@ typedef struct JoinRequestPayload_struct
 void JoinRequestPayload_extract(JoinRequestPayload* payload);
 void JoinRequestPayload_destroy(JoinRequestPayload* payload);
 JoinRequestPayload* JoinRequestPayload_create(
-	unsigned char* join_eui,
-	unsigned char* dev_eui,
-	unsigned char* dev_nonce);
+	uint8_t* join_eui,
+	uint8_t* dev_eui,
+	uint8_t* dev_nonce);
 
 typedef struct JoinAcceptPayload_struct
 {
-	unsigned char* join_nonce;
-	unsigned char* net_id;
-	unsigned char* dev_addr;
-	unsigned char* dl_settings;
-	unsigned char* rx_delay;
-	unsigned char* cf_list;
+	uint8_t* join_nonce;
+	uint8_t* net_id;
+	uint8_t* dev_addr;
+	uint8_t* dl_settings;
+	uint8_t* rx_delay;
+	uint8_t* cf_list;
 
 	IPayload* _ipayload;
 	Payload* _payload;
@@ -153,15 +153,15 @@ typedef struct JoinAcceptPayload_struct
 } JoinAcceptPayload;
 
 void JoinAcceptPayload_extract(JoinAcceptPayload* payload);
-short int JoinAcceptPayload_validate(JoinAcceptPayload* payload);
+uint16_t JoinAcceptPayload_validate(JoinAcceptPayload* payload);
 void JoinAcceptPayload_destroy(JoinAcceptPayload* payload);
 JoinAcceptPayload* JoinAcceptPayload_create_by_payload(Payload* payload);
 JoinAcceptPayload* JoinAcceptPayload_create(
-	unsigned int join_nonce, 
-	unsigned char* net_id, 
-	unsigned char* dev_addr, 
+	uint32_t join_nonce, 
+	uint8_t* net_id, 
+	uint8_t* dev_addr, 
 	DLSettings* dl_settings, 
-	short int rx_delay, 
+	uint16_t rx_delay, 
 	CFList* cf_list);
 
 

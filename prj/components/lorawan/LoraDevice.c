@@ -1,12 +1,11 @@
 #include "LoraDevice.h"
-#include "LoraUtil.h"
 #include "MacFrame.h"
 #include "stdlib.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void LoraDevice_set_dev_nonce(LoraDevice* device, short int dev_nonce)
+void LoraDevice_set_dev_nonce(LoraDevice* device, uint16_t dev_nonce)
 {
 	device->dev_nonce[1] = (dev_nonce >> 8) & 0xff;
 	device->dev_nonce[0] = (dev_nonce >> 0) & 0xff;
@@ -14,7 +13,7 @@ void LoraDevice_set_dev_nonce(LoraDevice* device, short int dev_nonce)
 
 void LoraDevice_incr_dev_nonce(LoraDevice* device)
 {
-	short int dev_nonce = device->dev_nonce[1] << 8 | device->dev_nonce[0];
+	uint16_t dev_nonce = device->dev_nonce[1] << 8 | device->dev_nonce[0];
 	dev_nonce++;
 	LoraDevice_set_dev_nonce(device, dev_nonce);
 }
@@ -30,7 +29,7 @@ void LoraDevice_send_join_request(LoraDevice* device)
 	LoraDevice_incr_dev_nonce(device);
 }
 
-void LoraDevice_set_dev_addr(LoraDevice* device, unsigned int dev_addr)
+void LoraDevice_set_dev_addr(LoraDevice* device, uint32_t dev_addr)
 {
 	device->dev_addr[3] = (dev_addr >> 0) & 0xff;
 	device->dev_addr[2] = (dev_addr >> 8) & 0xff;
@@ -44,11 +43,11 @@ void LoraDevice_destroy(LoraDevice* device)
 }
 
 LoraDevice* LoraDevice_create(
-	unsigned int dev_addr,
-	unsigned char* app_key,
-	unsigned char* join_eui,
-	unsigned char* dev_eui,
-	short int dev_nonce)
+	uint32_t dev_addr,
+	uint8_t* app_key,
+	uint8_t* join_eui,
+	uint8_t* dev_eui,
+	uint16_t dev_nonce)
 {
 	LoraDevice* device = malloc(sizeof(LoraDevice));
 	device->instance = device;

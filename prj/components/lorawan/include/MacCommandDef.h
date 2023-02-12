@@ -1,6 +1,8 @@
 #ifndef MAC_COMMAND_DEF_H
 #define MAC_COMMAND_DEF_H
 
+#include "LoraUtil.h"
+
 #define CID_SIZE                                1
 
 #define STATUS_SIZE                             1
@@ -127,69 +129,69 @@
 
 typedef struct DataRate_TxPower_struct
 {
-    short int data_rate;
-    short int tx_power;
+    uint16_t data_rate;
+    uint16_t tx_power;
 } DataRate_TxPower;
 
 typedef struct Redundancy_struct
 {
-    short int channel_mask_ctrl;
-    short int num_of_trans;
+    uint16_t channel_mask_ctrl;
+    uint16_t num_of_trans;
 } Redundancy;
 
 typedef struct ADRStatus_struct
 {
-    short int power;
-    short int data_rate;
-    short int channel_mask;
+    uint16_t power;
+    uint16_t data_rate;
+    uint16_t channel_mask;
 } ADRStatus;
 
 typedef struct DutyCyclePL_struct
 {
-    short int max_duty_cycle;
+    uint16_t max_duty_cycle;
 } DutyCyclePL;
 
 typedef struct DLSettings_struct
 {
-	short int rx1_dr_offset;
-	short int rx2_data_rate;
+	uint16_t rx1_dr_offset;
+	uint16_t rx2_data_rate;
 } DLSettings;
 
 typedef struct DeviceStatus_struct
 {
-    short int battery_power;
-    short int radio_status;
+    uint16_t battery_power;
+    uint16_t radio_status;
 } DeviceStatus;
 
 typedef struct RXParamSetupStatus_struct
 {
-	short int rx1_dr_offset_ack;
-	short int rx2_data_rate_ack;
-    short int channel_ack;
+	uint16_t rx1_dr_offset_ack;
+	uint16_t rx2_data_rate_ack;
+    uint16_t channel_ack;
 } RXParamSetupStatus;
 
 typedef struct DataRateRange_struct
 {
-    short int max_date_rate;
-    short int min_data_rate;
+    uint16_t max_date_rate;
+    uint16_t min_data_rate;
 } DataRateRange;
 
 typedef struct NewChannelStatus_struct
 {
-    short int data_rate_range;
-    short int channel_frequency;
+    uint16_t data_rate_range;
+    uint16_t channel_frequency;
 } NewChannelStatus;
 
 typedef struct DownlinkChannelStatus_struct
 {
-    short int uplink_frequency;
-    short int channel_frequency;
+    uint16_t uplink_frequency;
+    uint16_t channel_frequency;
 } DownlinkChannelStatus;
 
 typedef struct DeviceTimeInSecond_struct
 {
-    unsigned int seconds;
-    short int fraction_second;
+    uint32_t seconds;
+    uint16_t fraction_second;
 } DeviceTimeInSecond;
 
 

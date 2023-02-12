@@ -63,7 +63,7 @@ void LinkAdrAns_extract(LinkAdrAns* cmd)
 {
     MacCommand_extract(cmd->_cmd);
     
-    unsigned char* pdata = cmd->_cmd->data;
+    uint8_t* pdata = cmd->_cmd->data;
     pdata += cmd->_cmd->size;
     
     memcpy(pdata, cmd->status, BYTE_SIZE(STATUS_SIZE));
@@ -129,7 +129,7 @@ void RxParamSetupAns_extract(RxParamSetupAns* cmd)
 {
     MacCommand_extract(cmd->_cmd);
     
-    unsigned char* pdata = cmd->_cmd->data;
+    uint8_t* pdata = cmd->_cmd->data;
     pdata += cmd->_cmd->size;
     
     memcpy(pdata, cmd->status, BYTE_SIZE(STATUS_SIZE));
@@ -169,7 +169,7 @@ void DevStatusAns_extract(DevStatusAns* cmd)
 {
     MacCommand_extract(cmd->_cmd);
 
-    unsigned char* pdata = cmd->_cmd->data;
+    uint8_t* pdata = cmd->_cmd->data;
     pdata += cmd->_cmd->size;
     
     memcpy(pdata, cmd->battery, BYTE_SIZE(BATTERY_SIZE));
@@ -218,7 +218,7 @@ void NewChannelAns_extract(NewChannelAns* cmd)
 {
     MacCommand_extract(cmd->_cmd);
     
-    unsigned char* pdata = cmd->_cmd->data;
+    uint8_t* pdata = cmd->_cmd->data;
     pdata += cmd->_cmd->size;
     
     memcpy(pdata, cmd->status, BYTE_SIZE(STATUS_SIZE));
@@ -257,7 +257,7 @@ void DownlinkChannelAns_extract(DownlinkChannelAns* cmd)
 {
     MacCommand_extract(cmd->_cmd);
     
-    unsigned char* pdata = cmd->_cmd->data;
+    uint8_t* pdata = cmd->_cmd->data;
     pdata += cmd->_cmd->size;
     
     memcpy(pdata, cmd->status, BYTE_SIZE(STATUS_SIZE));

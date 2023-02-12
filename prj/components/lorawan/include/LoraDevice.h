@@ -1,6 +1,8 @@
 #ifndef LORA_DEVICE_H
 #define LORA_DEVICE_H
 
+#include "LoraUtil.h"
+
 #define DEV_ADDR_SIZE	4
 #define NWK_SKEY_SIZE	16
 #define APP_SKEY_SIZE	16
@@ -11,23 +13,23 @@
 
 typedef struct LoraDevice_struct
 {
-	unsigned char dev_addr[DEV_ADDR_SIZE];
-	unsigned char nwk_skey[NWK_SKEY_SIZE];
-	unsigned char app_skey[APP_SKEY_SIZE];
-	unsigned char app_key[APP_KEY_SIZE];
-	unsigned char join_eui[JOIN_EUI_SIZE];
-	unsigned char dev_eui[DEV_EUI_SIZE];
-	unsigned char dev_nonce[DEV_NONCE_SIZE];
+	uint8_t dev_addr[DEV_ADDR_SIZE];
+	uint8_t nwk_skey[NWK_SKEY_SIZE];
+	uint8_t app_skey[APP_SKEY_SIZE];
+	uint8_t app_key[APP_KEY_SIZE];
+	uint8_t join_eui[JOIN_EUI_SIZE];
+	uint8_t dev_eui[DEV_EUI_SIZE];
+	uint8_t dev_nonce[DEV_NONCE_SIZE];
 
 	void* instance;
 } LoraDevice;
 
 LoraDevice* LoraDevice_create(
-	unsigned int dev_addr,
-	unsigned char* app_key, 
-	unsigned char* join_eui, 
-	unsigned char* dev_eui, 
-	short int dev_nonce);
+	uint32_t dev_addr,
+	uint8_t* app_key, 
+	uint8_t* join_eui, 
+	uint8_t* dev_eui, 
+	uint16_t dev_nonce);
 void LoraDevice_destroy(LoraDevice*);
 
 

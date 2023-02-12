@@ -11,17 +11,17 @@
 #define BLOCK_A_INDEX_BYTE		15
 #define BLOCK_A_INDEX_SIZE		1
 
-static unsigned char block_a[BLOCK_A_SIZE] = {
+static uint8_t block_a[BLOCK_A_SIZE] = {
 	0x01, 0x00, 0x00, 0x00, 
 	0x00, 0x00, 0x00, 0x00, 
 	0x00, 0x00, 0x00, 0x00, 
 	0x00, 0x00, 0x00, 0x00
 };
-static short int s_max_app_payload = 242;
+static uint16_t s_max_app_payload = 242;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void set_max_app_payload(short int dr)
+void set_max_app_payload(uint16_t dr)
 {
 	switch (dr)
 	{
@@ -44,12 +44,12 @@ void Payload_extract(Payload* payload)
     
 }
 
-short int Payload_validate(Payload* payload)
+uint16_t Payload_validate(Payload* payload)
 {
 	return -1;
 }
 
-Payload* Payload_create_by_data(short int size, unsigned char* data)
+Payload* Payload_create_by_data(uint16_t size, uint8_t* data)
 {
 	Payload* payload = malloc(sizeof(Payload));
     payload->instance = payload;
@@ -95,13 +95,13 @@ void FrameHeader_insert_cmd(FrameHeader* fhdr, MacCommand* cmd)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-short int MacPayload_validate(MacPayload* payload, 
-	unsigned char* nwk_skey,
-	unsigned char* app_skey,
-	short int direction)
+uint16_t MacPayload_validate(MacPayload* payload, 
+	uint8_t* nwk_skey,
+	uint8_t* app_skey,
+	uint16_t direction)
 {
-	short int size = payload->_payload->size;
-	unsigned char* pdata = payload->_payload->data;
+	uint16_t size = payload->_payload->size;
+	uint8_t* pdata = payload->_payload->data;
 
 	if (size < DEV_ADDR_SIZE + FRAME_CONTROL_SIZE + FRAME_COUNTER_SIZE)
 	{
@@ -112,7 +112,7 @@ short int MacPayload_validate(MacPayload* payload,
 	pdata += DEV_ADDR_SIZE;
 	size -= DEV_ADDR_SIZE;
 	
-	short int fctrl;
+	uint16_t fctrl;
 	memcpy(&fctrl, pdata, BYTE_SIZE(FRAME_CONTROL_SIZE));
 	payload->fhdr->is_adr = GET_BITS(fctrl, 1, FCTRL_ADR_BIT);
 	payload->fhdr->is_adr_ack_req = GET_BITS(fctrl, 1, FCTRL_ADR_ACK_REQ_BIT);
@@ -122,7 +122,7 @@ short int MacPayload_validate(MacPayload* payload,
 	pdata += FRAME_CONTROL_SIZE;
 	size -= FRAME_CONTROL_SIZE;
 
-	payload->fhdr->frame_counter = ((short int)pdata[0] << 8) | ((short int)pdata[1]);
+	memcpy(&payload->fhdr->frame_counter, pdata, BYTE_SIZE(FRAME_COUNTER_SIZE));
 	pdata += FRAME_COUNTER_SIZE;
 	size -= FRAME_COUNTER_SIZE;
 
@@ -148,8 +148,8 @@ short int MacPayload_validate(MacPayload* payload,
 		{
 			return INVALID_DATA_SIZE;
 		}
-		short int fport = payload->fport[0];
-		unsigned char* key = fport == 0 ? nwk_skey : app_skey;
+		uint16_t fport = payload->fport[0];
+		uint8_t* key = fport == 0 ? nwk_skey : app_skey;
 		payload->frm_payload_len = size;
 		payload->frm_payload = malloc(BYTE_SIZE(size));
 
@@ -169,12 +169,12 @@ short int MacPayload_validate(MacPayload* payload,
 			BYTE_SIZE(FRAME_COUNTER_SIZE)
 		);
 
-		short int k = size / 16 + 1;
-		short int len_pld = 0;
+		uint16_t k = size / 16 + 1;
+		uint16_t len_pld = 0;
 		for (int i = 1; i <= k; i++)
 		{
 			block_a[BLOCK_A_INDEX_BYTE] = i;
-			unsigned char block_s[BLOCK_A_SIZE];
+			uint8_t block_s[BLOCK_A_SIZE];
 			aes128_encrypt(key, block_a, block_s, BLOCK_A_SIZE);
 
 			for (int j = 0; j < BLOCK_A_SIZE; j++)
@@ -218,16 +218,16 @@ MacPayload* MacPayload_create_by_payload(Payload* _payload)
 
 void MacPayload_extract(
 	MacPayload* payload, 
-	unsigned char* nwk_skey,
-	unsigned char* app_skey,
-	short int direction)
+	uint8_t* nwk_skey,
+	uint8_t* app_skey,
+	uint16_t direction)
 {
-	unsigned char* pdata = payload->_payload->data;
+	uint8_t* pdata = payload->_payload->data;
 	memcpy(pdata, payload->fhdr->dev_addr, BYTE_SIZE(DEV_ADDR_SIZE));
 	pdata += DEV_ADDR_SIZE;
 	payload->_payload->size += DEV_ADDR_SIZE;
 	
-	short int fctrl = 	
+	uint16_t fctrl = 	
 		SET_BITS(payload->fhdr->is_adr, 1, FCTRL_ADR_BIT) | 
 		SET_BITS(payload->fhdr->is_adr_ack_req, 1, FCTRL_ADR_ACK_REQ_BIT) | 
 		SET_BITS(payload->fhdr->is_ack, 1, FCTRL_ACK_BIT) |
@@ -257,8 +257,8 @@ void MacPayload_extract(
 
 	if (payload->fport && payload->frm_payload)
 	{
-		short int fport = payload->fport[0];
-		unsigned char* key = fport == 0 ? nwk_skey : app_skey;
+		uint16_t fport = payload->fport[0];
+		uint8_t* key = fport == 0 ? nwk_skey : app_skey;
 
 		memset(
 			&block_a[BLOCK_A_DIR_BYTE], 
@@ -276,12 +276,12 @@ void MacPayload_extract(
 			BYTE_SIZE(FRAME_COUNTER_SIZE)
 		); 
 
-		short int k = payload->frm_payload_len / 16 + 1;
-		short int len_pld = 0;
+		uint16_t k = payload->frm_payload_len / 16 + 1;
+		uint16_t len_pld = 0;
 		for (int i = 1; i <= k; i++)
 		{
 			block_a[BLOCK_A_INDEX_BYTE] = i;
-			unsigned char block_s[BLOCK_A_SIZE];
+			uint8_t block_s[BLOCK_A_SIZE];
 			aes128_encrypt(key, block_a, block_s, BLOCK_A_SIZE);
 
 			for (int j = 0; j < BLOCK_A_SIZE; j++)
@@ -295,7 +295,7 @@ void MacPayload_extract(
 	}
 }
 
-void MacPayload_set_fport(MacPayload* payload, short int fport)
+void MacPayload_set_fport(MacPayload* payload, uint16_t fport)
 {
 	ESP_ERROR_CHECK(
 		payload->fport != NULL ||
@@ -308,17 +308,17 @@ void MacPayload_set_fport(MacPayload* payload, short int fport)
 
 void MacPayload_set_app_payload(
 	MacPayload* payload, 
-	short int fport,
+	uint16_t fport,
 	int len,
-	unsigned char* app_payload)
+	uint8_t* app_payload)
 {
 	ESP_ERROR_CHECK(
 		fport == 0 ||
-		(payload->fport != NULL && (short int)(*payload->fport) == 0)
+		(payload->fport != NULL && (uint16_t)(*payload->fport) == 0)
 	);
 
-	payload->frm_payload = malloc(sizeof(unsigned char) * len);
-	memcpy(payload->frm_payload, app_payload, sizeof(unsigned char) * len);
+	payload->frm_payload = malloc(sizeof(uint8_t) * len);
+	memcpy(payload->frm_payload, app_payload, sizeof(uint8_t) * len);
 	payload->frm_payload_len = len;
 
 	payload->fport = malloc(BYTE_SIZE(FRAME_PORT_SIZE));
@@ -335,12 +335,12 @@ void MacPayload_set_commands_to_payload(
 		payload->fhdr->fopts_len > 0
 	);
 	
-	unsigned int max_len = 
+	uint32_t max_len = 
 		MAXIMUM_FRAME_PAYLOAD_SIZE - 
 		MAXIMUM_FRAME_OPTIONS_SIZE + 
 		payload->fhdr->fopts_len;
-	unsigned char* frm_payload = malloc(BYTE_SIZE(max_len));
-	unsigned char* pfrm_payload = frm_payload;
+	uint8_t* frm_payload = malloc(BYTE_SIZE(max_len));
+	uint8_t* pfrm_payload = frm_payload;
 	
 	payload->frm_payload_len = 0;
 	for (int i = 0; i < len; i++)
@@ -402,7 +402,7 @@ MacPayload* MacPayload_create(FrameHeader* fhdr)
 
 void JoinRequestPayload_extract(JoinRequestPayload* payload)
 {
-	unsigned char* pdata = payload->_payload->data;
+	uint8_t* pdata = payload->_payload->data;
 
 	memcpy(pdata, payload->join_eui, BYTE_SIZE(JOIN_EUI_SIZE));
 	pdata += JOIN_EUI_SIZE;
@@ -428,9 +428,9 @@ void JoinRequestPayload_destroy(JoinRequestPayload* payload)
 }
 
 JoinRequestPayload* JoinRequestPayload_create(
-	unsigned char* join_eui,
-	unsigned char* dev_eui,
-	unsigned char* dev_nonce)
+	uint8_t* join_eui,
+	uint8_t* dev_eui,
+	uint8_t* dev_nonce)
 {
 	JoinRequestPayload* payload = malloc(sizeof(JoinRequestPayload));
 	payload->instance = payload;
@@ -476,16 +476,16 @@ JoinAcceptPayload* JoinAcceptPayload_create_by_payload(Payload* _payload)
 	return payload;
 }
 
-short int JoinAcceptPayload_validate(JoinAcceptPayload* payload)
+uint16_t JoinAcceptPayload_validate(JoinAcceptPayload* payload)
 {
-	short int size = payload->_payload->size;
+	uint16_t size = payload->_payload->size;
 	if (size < JOIN_NONCE_SIZE + NET_ID_SIZE + DEV_ADDR_SIZE + 
 		DLSETTINGS_SIZE + RX_DELAY_SIZE) 
 	{
 		return INVALID_DATA_SIZE;
 	}
 
-	unsigned char* pdata = payload->_payload->data;
+	uint8_t* pdata = payload->_payload->data;
 
 	memcpy(payload->join_nonce, pdata, BYTE_SIZE(JOIN_NONCE_SIZE));
 	size -= JOIN_NONCE_SIZE;
@@ -528,16 +528,16 @@ short int JoinAcceptPayload_validate(JoinAcceptPayload* payload)
 
 void JoinAcceptPayload_set_join_nonce(
 	JoinAcceptPayload* payload, 
-	unsigned int join_nonce)
+	uint32_t join_nonce)
 {
-	payload->join_nonce[2] = (unsigned char)(join_nonce >> 16);
-	payload->join_nonce[1] = (unsigned char)(join_nonce >> 8);
-	payload->join_nonce[0] = (unsigned char)(join_nonce);
+	payload->join_nonce[2] = (uint8_t)(join_nonce >> 16);
+	payload->join_nonce[1] = (uint8_t)(join_nonce >> 8);
+	payload->join_nonce[0] = (uint8_t)(join_nonce);
 }
 
 void JoinAcceptPayload_extract(JoinAcceptPayload* payload)
 {
-	unsigned char* pdata = payload->_payload->data;
+	uint8_t* pdata = payload->_payload->data;
 
 	memcpy(pdata, payload->join_nonce, BYTE_SIZE(JOIN_NONCE_SIZE));
 	pdata += JOIN_NONCE_SIZE;
@@ -568,11 +568,11 @@ void JoinAcceptPayload_extract(JoinAcceptPayload* payload)
 }
 
 JoinAcceptPayload* JoinAcceptPayload_create(
-	unsigned int join_nonce, 
-	unsigned char* net_id, 
-	unsigned char* dev_addr, 
+	uint32_t join_nonce, 
+	uint8_t* net_id, 
+	uint8_t* dev_addr, 
 	DLSettings* dl_settings, 
-	short int rx_delay, 
+	uint16_t rx_delay, 
 	CFList* cf_list)
 {
 	JoinAcceptPayload* payload = malloc(sizeof(JoinAcceptPayload));
@@ -584,8 +584,8 @@ JoinAcceptPayload* JoinAcceptPayload_create(
 	payload->dl_settings = malloc(BYTE_SIZE(DLSETTINGS_SIZE));
 	
     JoinAcceptPayload_set_join_nonce(payload, join_nonce);
-	memcpy(payload->net_id, net_id, sizeof(unsigned char)* NET_ID_SIZE);
-	memcpy(payload->dev_addr, dev_addr, sizeof(unsigned char)* DEV_ADDR_SIZE);
+	memcpy(payload->net_id, net_id, sizeof(uint8_t)* NET_ID_SIZE);
+	memcpy(payload->dev_addr, dev_addr, sizeof(uint8_t)* DEV_ADDR_SIZE);
 	payload->dl_settings[0] = 
 		SET_BITS(dl_settings->rx1_dr_offset, RX1DROFFSET_BITS, RX1DROFFSET_OFFSET) |
 		SET_BITS(dl_settings->rx2_data_rate, RX2DATARATE_BITS, RX2DATARATE_OFFSET);
