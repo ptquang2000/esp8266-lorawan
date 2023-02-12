@@ -23,9 +23,7 @@ typedef struct LoraDevice_struct
 } LoraDevice;
 
 LoraDevice* LoraDevice_create(
-	unsigned char* dev_addr,
-	unsigned char* nwk_skey,
-	unsigned char* app_skey,
+	unsigned int dev_addr,
 	unsigned char* app_key, 
 	unsigned char* join_eui, 
 	unsigned char* dev_eui, 

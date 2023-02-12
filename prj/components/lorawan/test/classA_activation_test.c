@@ -2,81 +2,15 @@
 #include "LoraUtil.h"
 #include "unity.h"
 
-static unsigned char nwk_skey[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-static unsigned char app_skey[] = {16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
 static unsigned char app_key[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 static unsigned char join_eui[] = {3, 3, 3, 3, 1, 1, 1, 1};
 static unsigned char dev_eui[] = {2, 2, 2, 2, 4, 4, 4, 4};
 static short int dev_nonce = 772;
 
-
-static FrameHeader fhdr = {
-	.dev_addr = {4, 3, 2, 1},
-	.is_adr = 0,
-	.is_adr_ack_req = 0,
-	.is_ack = 0,
-	.frame_counter = 0,
-	.is_classB = 0,
-	.fopts_len = 0
-};
-
-static void print_frame_data(Frame* frame, int type)
+TEST_CASE("Test Join Request", "[JoinRequest]")
 {
-	printf("[");
-	for (int i = 0; i < frame->size; i++)
-	{
-		if (type == 0)
-		{
-			printf("%d", frame->data[i]);
-		}
-		else
-		{
-			printf("%02x", frame->data[i]);
-
-		}
-		if (i == frame->size - 1) printf("]\n");
-		else printf(" ");
-	}
-}
-
-static void check_cmd_frm_payload(MacCommand* cmd, short int len, unsigned char* expected)
-{
-	fhdr.fopts_len = 0;
-
-	MacFrame* frame = MacFrame_create(ConfirmedDataUplink, &fhdr);
-	short int num_of_cmds = 1;
-	MacCommand** cmds = malloc(sizeof(MacCommand*) * num_of_cmds);
-	cmds[0] = cmd;
-
-    MacPayload_set_commands_to_payload(frame->payload, num_of_cmds, cmds);
-	frame->_iframe->extract(frame->instance, nwk_skey, app_skey);
-
-	TEST_ASSERT_EQUAL_INT(len, frame->_frame->size);
-	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->_frame->data, len);
-
-	free(cmds);
-	MacFrame_destroy(frame);
-}
-
-static void check_cmd_fopts(MacCommand* cmd, short int len, unsigned char* expected)
-{
-	fhdr.fopts_len = 0;
-	FrameHeader_insert_cmd(&fhdr, cmd);
-
-	MacFrame* frame = MacFrame_create(ConfirmedDataUplink, &fhdr);
-	frame->_iframe->extract(frame->instance, nwk_skey, app_skey);
-
-	TEST_ASSERT_EQUAL_INT(len, frame->_frame->size);
-	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->_frame->data, len);
-
-	MacFrame_destroy(frame);
-}
-
-
-
-TEST_CASE("Test Join Request", "[lorawan]")
-{
-    LoraDevice* device = LoraDevice_create(app_key, app_key, app_key, app_key, join_eui, dev_eui, dev_nonce);
+	unsigned int dev_addr = 0x01020304;
+    LoraDevice* device = LoraDevice_create(dev_addr, app_key, join_eui, dev_eui, dev_nonce);
 
 	JoinRequestFrame* frame = JoinRequestFrame_create(device->join_eui, device->dev_eui, device->dev_nonce);
 	frame->_iframe->extract(frame, device->app_key);

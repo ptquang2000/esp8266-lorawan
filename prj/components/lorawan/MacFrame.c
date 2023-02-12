@@ -57,6 +57,7 @@ Frame* Frame_create_by_data(short int size, unsigned char* data)
 	ESP_ERROR_CHECK(frame->size < MINIMUM_PHYPAYLOAD_SIZE);
 
 	memcpy(frame->mhdr, frame->data, BYTE_SIZE(MHDR_SIZE));
+	frame->mic = NULL;
 	frame->type = (FrameType)GET_BITS((*frame->mhdr), FRAME_TYPE_BITS, FRAME_TYPE_OFFSET);
 
 	return frame;
@@ -94,26 +95,28 @@ void Frame_destroy(Frame* frame)
 
 short int MacFrame_validate(
 	MacFrame* frame,
-	short int dir,
-	unsigned char* dev_addr, 
-	short int frame_counter,
-	unsigned char* nwk_skey)
+	unsigned char* nwk_skey,
+	unsigned char* app_skey,
+	short int direction,
+	unsigned char* dev_addr,
+	short int frame_counter)
 {
+	short int result = 0;
 	short int size_no_mic = frame->_frame->size - MIC_SIZE;
 	memset(
 		&block_b0[BLOCK_B_DIR_BYTE], 
-		BIT_MASK(dir, 1), 
+		direction & 1, 
 		BYTE_SIZE(BLOCK_B_DIR_SIZE)
 	); 
 	memcpy(
 		&block_b0[BLOCK_B_DEV_ADDR_BYTE], 
 		dev_addr, 
 		BYTE_SIZE(BLOCK_B_DEV_ADDR_SIZE)
-	); 
-	memset(
+	);
+	memcpy(
 		&block_b0[BLOCK_B_FCNT_BYTE], 
-		frame_counter + 1, 
-		BYTE_SIZE(BLOCK_B_FCNT_SIZE)
+		&frame_counter, 
+		BYTE_SIZE(FRAME_COUNTER_SIZE)
 	); 
 	memset(
 		&block_b0[BLOCK_B_MESSAGE_BYTE], 
@@ -130,17 +133,47 @@ short int MacFrame_validate(
 	calculate_mic(nwk_skey, b0_msg, BLOCK_B0_SIZE + size_no_mic, mic);
 	free(b0_msg);
 
-	if (memcmp(mic, frame->_frame->mic, MIC_SIZE) != 0) return INVALID_MIC;
+	if (memcmp(mic, frame->_frame->data + size_no_mic, MIC_SIZE) != 0) 
+	{
+		result = INVALID_MIC;
+	}
 
-	Payload* payload = Payload_create();
+	if (result == 0)
+	{
+		Payload* _payload = Payload_create_by_data(
+			frame->_frame->size - MHDR_SIZE - MIC_SIZE, 
+			frame->_frame->data + MHDR_SIZE);
+		frame->payload = MacPayload_create_by_payload(_payload);
+		result = frame->payload->_ipayload->validate(
+			frame->payload, nwk_skey, app_skey, direction);
+	}
 
-	return 0;
+	return result;
 }
+
+MacFrame* MacFrame_create_by_frame(Frame* _frame)
+{
+	MacFrame* frame = malloc(sizeof(MacFrame));
+	frame->instance = frame;
+
+	frame->_frame = _frame;
+	frame->_frame->instance = frame->instance;
+
+	frame->_iframe = frame->_frame->_iframe;
+	frame->_iframe->extract = &MacFrame_extract;
+	frame->_iframe->validate = &MacFrame_validate;
+
+	frame->payload = NULL;
+
+	return frame;
+}
+
 
 void MacFrame_extract(
 	MacFrame* frame,
 	unsigned char* nwk_skey,
-	unsigned char* app_skey)
+	unsigned char* app_skey,
+	short int direction)
 {
 	unsigned char* pdata = frame->_frame->data;
 
@@ -148,26 +181,25 @@ void MacFrame_extract(
 	frame->_frame->size += MHDR_SIZE;
 	pdata += MHDR_SIZE;
 
-	short int dir = BIT_MASK(frame->_frame->type, 1);
-	frame->payload->_ipayload->extract(frame->payload->instance, nwk_skey, app_skey, &dir);
+	frame->payload->_ipayload->extract(frame->payload->instance, nwk_skey, app_skey, direction);
 	memcpy(pdata, frame->payload->_payload->data, BYTE_SIZE(frame->payload->_payload->size));
 	frame->_frame->size += frame->payload->_payload->size;
 	pdata += frame->payload->_payload->size;
 	
 	memset(
 		&block_b0[BLOCK_B_DIR_BYTE], 
-		dir, 
+		direction & 1, 
 		BYTE_SIZE(BLOCK_B_DIR_SIZE)
 	); 
 	memcpy(
 		&block_b0[BLOCK_B_DEV_ADDR_BYTE], 
 		frame->payload->fhdr->dev_addr, 
 		BYTE_SIZE(BLOCK_B_DEV_ADDR_SIZE)
-	); 
-	memset(
-		&block_b0[BLOCK_B_FCNT_BYTE], 
-		frame->payload->fhdr->frame_counter, 
-		BYTE_SIZE(BLOCK_B_FCNT_SIZE)
+	);
+	memcpy(
+		&block_b0[BLOCK_B_FCNT_BYTE + FRAME_COUNTER_SIZE], 
+		&frame->payload->fhdr->frame_counter, 
+		BYTE_SIZE(FRAME_COUNTER_SIZE)
 	); 
 	memset(
 		&block_b0[BLOCK_B_MESSAGE_BYTE], 
@@ -198,6 +230,7 @@ MacFrame* MacFrame_create(FrameType frame_type, FrameHeader* fhdr)
 
 	frame->_iframe = frame->_frame->_iframe;
 	frame->_iframe->extract = &MacFrame_extract;
+	frame->_iframe->validate = &MacFrame_validate;
 
 	frame->payload = MacPayload_create(fhdr);
 
@@ -206,9 +239,9 @@ MacFrame* MacFrame_create(FrameType frame_type, FrameHeader* fhdr)
 
 void MacFrame_destroy(MacFrame* frame)
 {
-	MacPayload_destroy(frame->payload);
+	if (frame->payload != NULL) MacPayload_destroy(frame->payload);
 	
-	Frame_destroy(frame->_frame);
+	if (frame->_frame != NULL) Frame_destroy(frame->_frame);
 	free(frame);
 }
 
@@ -236,9 +269,9 @@ void JoinRequestFrame_extract(JoinRequestFrame* frame, unsigned char* app_key)
 
 void JoinRequestFrame_destroy(JoinRequestFrame* frame)
 {
-	JoinRequestPayload_destroy(frame->payload);
+	if (frame->payload != NULL) JoinRequestPayload_destroy(frame->payload);
 
-	Frame_destroy(frame->_frame);
+	if (frame->_frame != NULL) Frame_destroy(frame->_frame);
 	free(frame);
 }
 
@@ -308,6 +341,8 @@ JoinAcceptFrame* JoinAcceptFrame_create_by_frame(Frame* i_frame)
 	frame->_iframe->extract = &JoinAcceptFrame_extract;
 	frame->_iframe->validate = &JoinAcceptFrame_validate;
 
+	frame->payload = NULL;
+
 	return frame;
 }
 
@@ -362,8 +397,8 @@ JoinAcceptFrame* JoinAcceptFrame_create(
 
 void JoinAcceptFrame_destroy(JoinAcceptFrame* frame)
 {
-	JoinAcceptPayload_destroy(frame->payload);
+	if (frame->payload != NULL) JoinAcceptPayload_destroy(frame->payload);
 	
-	Frame_destroy(frame->_frame);
+	if (frame->_frame != NULL) Frame_destroy(frame->_frame);
 	free(frame);
 }

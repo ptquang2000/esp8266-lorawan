@@ -75,7 +75,7 @@ typedef struct FrameHeader_struct
 	short int is_adr;
 	short int is_adr_ack_req;
 	short int is_ack;
-	short int is_classB;
+	short int fpending;
 	short int fopts_len;
 
 	short int frame_counter;
@@ -97,6 +97,10 @@ typedef struct MacPayload_struct
 	void* instance;
 } MacPayload;
 
+short int MacPayload_validate(MacPayload* payload, 
+	unsigned char* nwk_skey,
+	unsigned char* app_skey,
+	short int direction);
 void MacPayload_set_fport(MacPayload* payload, short int fport);
 void MacPayload_set_app_payload(
 	MacPayload* payload, 
@@ -111,8 +115,9 @@ void MacPayload_extract(
 	MacPayload* payload, 
 	unsigned char* nwk_skey,
 	unsigned char* app_skey,
-	short int* pdir);
+	short int direction);
 void MacPayload_destroy(MacPayload* payload);
+MacPayload* MacPayload_create_by_payload(Payload* payload);
 MacPayload* MacPayload_create(FrameHeader* fhdr);
 
 typedef struct JoinRequestPayload_struct

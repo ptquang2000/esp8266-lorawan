@@ -17,7 +17,25 @@ static unsigned char block_a[BLOCK_A_SIZE] = {
 	0x00, 0x00, 0x00, 0x00, 
 	0x00, 0x00, 0x00, 0x00
 };
+static short int s_max_app_payload = 242;
 
+////////////////////////////////////////////////////////////////////////////////
+
+void set_max_app_payload(short int dr)
+{
+	switch (dr)
+	{
+	case 0: s_max_app_payload = 51;	break;
+	case 1: s_max_app_payload = 51;	break;
+	case 2: s_max_app_payload = 51;	break;
+	case 3: s_max_app_payload = 115; break;
+	case 4: s_max_app_payload = 242; break;
+	case 5: s_max_app_payload = 242; break;
+	case 6: s_max_app_payload = 242; break;
+	case 7: s_max_app_payload = 242; break;
+	default: ESP_ERROR_CHECK(1); break;
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -41,6 +59,7 @@ Payload* Payload_create_by_data(short int size, unsigned char* data)
 
 	payload->_ipayload = malloc(sizeof(IPayload));
     payload->_ipayload->extract = &Payload_extract;
+	payload->_ipayload->validate = &Payload_validate;
 
 	return payload;
 }
@@ -76,11 +95,132 @@ void FrameHeader_insert_cmd(FrameHeader* fhdr, MacCommand* cmd)
 
 ////////////////////////////////////////////////////////////////////////////////
 
+short int MacPayload_validate(MacPayload* payload, 
+	unsigned char* nwk_skey,
+	unsigned char* app_skey,
+	short int direction)
+{
+	short int size = payload->_payload->size;
+	unsigned char* pdata = payload->_payload->data;
+
+	if (size < DEV_ADDR_SIZE + FRAME_CONTROL_SIZE + FRAME_COUNTER_SIZE)
+	{
+		return INVALID_DATA_SIZE;
+	}
+
+	memcpy(payload->fhdr->dev_addr, pdata, BYTE_SIZE(DEV_ADDR_SIZE));
+	pdata += DEV_ADDR_SIZE;
+	size -= DEV_ADDR_SIZE;
+	
+	short int fctrl;
+	memcpy(&fctrl, pdata, BYTE_SIZE(FRAME_CONTROL_SIZE));
+	payload->fhdr->is_adr = GET_BITS(fctrl, 1, FCTRL_ADR_BIT);
+	payload->fhdr->is_adr_ack_req = GET_BITS(fctrl, 1, FCTRL_ADR_ACK_REQ_BIT);
+	payload->fhdr->is_ack = GET_BITS(fctrl, 1, FCTRL_ACK_BIT);
+	payload->fhdr->fpending = GET_BITS(fctrl, 1, FCTRL_CLASSB_BIT);
+	payload->fhdr->fopts_len = GET_BITS(fctrl, FCTRL_FOPTS_LEN_BITS, FCTRL_FOPTS_LEN_OFFSET);
+	pdata += FRAME_CONTROL_SIZE;
+	size -= FRAME_CONTROL_SIZE;
+
+	payload->fhdr->frame_counter = ((short int)pdata[0] << 8) | ((short int)pdata[1]);
+	pdata += FRAME_COUNTER_SIZE;
+	size -= FRAME_COUNTER_SIZE;
+
+	if (size >= payload->fhdr->fopts_len && payload->fhdr->fopts_len != 0)
+	{
+		memcpy(payload->fhdr->fopts, pdata, BYTE_SIZE(payload->fhdr->fopts_len));
+		pdata += payload->fhdr->fopts_len;
+		size -= payload->fhdr->fopts_len;
+	}
+
+	if (size >= FRAME_PORT_SIZE)
+	{
+		payload->fport = malloc(BYTE_SIZE(FRAME_PORT_SIZE));
+		memcpy(payload->fport, pdata, BYTE_SIZE(FRAME_PORT_SIZE));
+		pdata += FRAME_PORT_SIZE;
+		size -= FRAME_PORT_SIZE;
+	}
+
+	if (size > 0 && payload->fport != NULL)
+	{
+
+		if (size > s_max_app_payload - payload->fhdr->fopts_len)
+		{
+			return INVALID_DATA_SIZE;
+		}
+		short int fport = payload->fport[0];
+		unsigned char* key = fport == 0 ? nwk_skey : app_skey;
+		payload->frm_payload_len = size;
+		payload->frm_payload = malloc(BYTE_SIZE(size));
+
+		memset(
+			&block_a[BLOCK_A_DIR_BYTE], 
+			direction & 1, 
+			BYTE_SIZE(BLOCK_A_DIR_SIZE)
+		); 
+		memcpy(
+			&block_a[BLOCK_A_DEV_ADDR_BYTE], 
+			payload->fhdr->dev_addr, 
+			BYTE_SIZE(DEV_ADDR_SIZE)
+		);
+		memcpy(
+			&block_a[BLOCK_A_FCNT_BYTE], 
+			&payload->fhdr->frame_counter, 
+			BYTE_SIZE(FRAME_COUNTER_SIZE)
+		);
+
+		short int k = size / 16 + 1;
+		short int len_pld = 0;
+		for (int i = 1; i <= k; i++)
+		{
+			block_a[BLOCK_A_INDEX_BYTE] = i;
+			unsigned char block_s[BLOCK_A_SIZE];
+			aes128_encrypt(key, block_a, block_s, BLOCK_A_SIZE);
+
+			for (int j = 0; j < BLOCK_A_SIZE; j++)
+			{
+				payload->frm_payload[j] = pdata[j] ^ block_s[j];
+				if (++len_pld == payload->frm_payload_len) break;
+			}
+			pdata += BLOCK_A_SIZE;
+		}
+		size -= payload->frm_payload_len;
+	}
+
+	if (size != 0)
+	{
+		return INVALID_DATA_SIZE;
+	}
+
+	return 0;
+}
+
+MacPayload* MacPayload_create_by_payload(Payload* _payload)
+{
+	MacPayload* payload = malloc(sizeof(MacPayload));
+	payload->instance = payload;
+
+	payload->fhdr = malloc(sizeof(FrameHeader));
+	payload->fport = NULL;
+	payload->frm_payload = NULL;
+
+	payload->_payload = _payload;
+	payload->_payload->instance = payload->instance;
+
+	payload->_ipayload = payload->_payload->_ipayload;
+	payload->_ipayload->extract = &MacPayload_extract;
+	payload->_ipayload->validate = &MacPayload_validate;
+
+	payload->frm_payload_len = 0;
+
+	return payload;
+}
+
 void MacPayload_extract(
 	MacPayload* payload, 
 	unsigned char* nwk_skey,
 	unsigned char* app_skey,
-	short int* pdir)
+	short int direction)
 {
 	unsigned char* pdata = payload->_payload->data;
 	memcpy(pdata, payload->fhdr->dev_addr, BYTE_SIZE(DEV_ADDR_SIZE));
@@ -91,13 +231,13 @@ void MacPayload_extract(
 		SET_BITS(payload->fhdr->is_adr, 1, FCTRL_ADR_BIT) | 
 		SET_BITS(payload->fhdr->is_adr_ack_req, 1, FCTRL_ADR_ACK_REQ_BIT) | 
 		SET_BITS(payload->fhdr->is_ack, 1, FCTRL_ACK_BIT) |
-		SET_BITS(payload->fhdr->is_classB, 1, FCTRL_CLASSB_BIT ) |
+		SET_BITS(payload->fhdr->fpending, 1, FCTRL_CLASSB_BIT ) |
 		SET_BITS(payload->fhdr->fopts_len, FCTRL_FOPTS_LEN_BITS, FCTRL_FOPTS_LEN_OFFSET);
 	memset(pdata, fctrl, BYTE_SIZE(FRAME_CONTROL_SIZE));
 	pdata += FRAME_CONTROL_SIZE;
 	payload->_payload->size += FRAME_CONTROL_SIZE;
 
-	memset(pdata, payload->fhdr->frame_counter, BYTE_SIZE(FRAME_COUNTER_SIZE));
+	memcpy(pdata, &payload->fhdr->frame_counter, BYTE_SIZE(FRAME_COUNTER_SIZE));
 	pdata += FRAME_COUNTER_SIZE;
 	payload->_payload->size += FRAME_COUNTER_SIZE;
 
@@ -122,21 +262,22 @@ void MacPayload_extract(
 
 		memset(
 			&block_a[BLOCK_A_DIR_BYTE], 
-			*pdir, 
+			direction & 1, 
 			BYTE_SIZE(BLOCK_A_DIR_SIZE)
 		); 
 		memcpy(
 			&block_a[BLOCK_A_DEV_ADDR_BYTE], 
 			payload->fhdr->dev_addr, 
 			BYTE_SIZE(DEV_ADDR_SIZE)
-		); 
-		memset(
+		);
+		memcpy(
 			&block_a[BLOCK_A_FCNT_BYTE], 
-			payload->fhdr->frame_counter, 
+			&payload->fhdr->frame_counter, 
 			BYTE_SIZE(FRAME_COUNTER_SIZE)
 		); 
 
 		short int k = payload->frm_payload_len / 16 + 1;
+		short int len_pld = 0;
 		for (int i = 1; i <= k; i++)
 		{
 			block_a[BLOCK_A_INDEX_BYTE] = i;
@@ -146,6 +287,7 @@ void MacPayload_extract(
 			for (int j = 0; j < BLOCK_A_SIZE; j++)
 			{
 				pdata[j] = payload->frm_payload[j] ^ block_s[j];
+				if (++len_pld == payload->frm_payload_len) break;
 			}
 			pdata += BLOCK_A_SIZE;
 		}
@@ -225,7 +367,7 @@ void MacPayload_destroy(MacPayload* payload)
 	free(payload->fport);
 	free(payload->frm_payload);
 
-	Payload_destroy(payload->_payload);
+	if (payload->_payload != NULL) Payload_destroy(payload->_payload);
 	free(payload);
 }
 
@@ -249,6 +391,7 @@ MacPayload* MacPayload_create(FrameHeader* fhdr)
 
 	payload->_ipayload = payload->_payload->_ipayload;
 	payload->_ipayload->extract = &MacPayload_extract;
+	payload->_ipayload->validate = &MacPayload_validate;
 
 	payload->frm_payload_len = 0;
 
@@ -280,7 +423,7 @@ void JoinRequestPayload_destroy(JoinRequestPayload* payload)
 	free(payload->dev_eui);
 	free(payload->dev_nonce);
 
-    Payload_destroy(payload->_payload);
+    if (payload->_payload != NULL) Payload_destroy(payload->_payload);
     free(payload);
 }
 
@@ -450,29 +593,29 @@ JoinAcceptPayload* JoinAcceptPayload_create(
 	if (cf_list)
 	{
 		payload->cf_list = malloc(BYTE_SIZE(CFLIST_SIZE));
-		memset(
+		memcpy(
 			&payload->cf_list[FRE_CH3_OFFSET], 
-			BIT_MASK(cf_list->fre_ch3, 12), 
+			&cf_list->fre_ch3, 
 			BYTE_SIZE(FRE_CHX_SIZE)
 		);
-		memset(
+		memcpy(
 			&payload->cf_list[FRE_CH4_OFFSET], 
-			BIT_MASK(cf_list->fre_ch4, 12), 
+			&cf_list->fre_ch4, 
 			BYTE_SIZE(FRE_CHX_SIZE)
 		);
-		memset(
+		memcpy(
 			&payload->cf_list[FRE_CH5_OFFSET], 
-			BIT_MASK(cf_list->fre_ch5, 12), 
+			&cf_list->fre_ch5, 
 			BYTE_SIZE(FRE_CHX_SIZE)
 		);
-		memset(
+		memcpy(
 			&payload->cf_list[FRE_CH6_OFFSET], 
-			BIT_MASK(cf_list->fre_ch6, 12), 
+			&cf_list->fre_ch6, 
 			BYTE_SIZE(FRE_CHX_SIZE)
 		);
-		memset(
+		memcpy(
 			&payload->cf_list[FRE_CH7_OFFSET], 
-			BIT_MASK(cf_list->fre_ch7, 12), 
+			&cf_list->fre_ch7, 
 			BYTE_SIZE(FRE_CHX_SIZE)
 		);
 		memset(
@@ -506,8 +649,8 @@ void JoinAcceptPayload_destroy(JoinAcceptPayload* payload)
 	free(payload->rx_delay);
 	free(payload->dl_settings);
 	free(payload->cf_list);
-
-    Payload_destroy(payload->_payload);
+	
+	if (payload->_payload != NULL) Payload_destroy(payload->_payload);
     free(payload);
 }
 

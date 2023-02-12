@@ -4,6 +4,7 @@
 
 static unsigned char nwk_skey[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 static unsigned char app_skey[] = {16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
+static short int direction = 0;
 
 static FrameHeader fhdr = {
 	.dev_addr = {4, 3, 2, 1},
@@ -11,7 +12,7 @@ static FrameHeader fhdr = {
 	.is_adr_ack_req = 0,
 	.is_ack = 0,
 	.frame_counter = 0,
-	.is_classB = 0,
+	.fpending = 0,
 	.fopts_len = 0
 };
 
@@ -44,7 +45,7 @@ static void check_cmd_frm_payload(MacCommand* cmd, short int len, unsigned char*
 	cmds[0] = cmd;
 
     MacPayload_set_commands_to_payload(frame->payload, num_of_cmds, cmds);
-	frame->_iframe->extract(frame->instance, nwk_skey, app_skey);
+	frame->_iframe->extract(frame->instance, nwk_skey, app_skey, direction);
 
 	TEST_ASSERT_EQUAL_INT(len, frame->_frame->size);
 	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->_frame->data, len);
@@ -59,7 +60,7 @@ static void check_cmd_fopts(MacCommand* cmd, short int len, unsigned char* expec
 	FrameHeader_insert_cmd(&fhdr, cmd);
 
 	MacFrame* frame = MacFrame_create(ConfirmedDataUplink, &fhdr);
-	frame->_iframe->extract(frame->instance, nwk_skey, app_skey);
+	frame->_iframe->extract(frame->instance, nwk_skey, app_skey, direction);
 
 	TEST_ASSERT_EQUAL_INT(len, frame->_frame->size);
 	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->_frame->data, len);

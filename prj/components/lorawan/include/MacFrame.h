@@ -65,14 +65,17 @@ typedef struct MacFrame_struct
 
 short int MacFrame_validate(
 	MacFrame* frame,
-	short int dir,
+	unsigned char* nwk_skey,
+	unsigned char* app_skey,
+	short int direction,
 	unsigned char* dev_addr, 
-	short int frame_counter,
-	unsigned char* nwk_skey);
+	short int frame_counter);
+MacFrame* MacFrame_create_by_frame(Frame* _frame);
 void MacFrame_extract(
 	MacFrame* frame,
 	unsigned char* nwk_skey,
-	unsigned char* app_skey);
+	unsigned char* app_skey,
+	short int direction);
 void MacFrame_destroy(MacFrame* frame);
 MacFrame* MacFrame_create(FrameType frame_type, FrameHeader* fhdr);
 

@@ -40,7 +40,7 @@ void LinkCheckReq_extract(LinkCheckReq* cmd)
 
 void LinkCheckReq_destroy(LinkCheckReq* cmd)
 {
-    MacCommand_destroy(cmd->_cmd);
+    if (cmd->_cmd != NULL) MacCommand_destroy(cmd->_cmd);
 }
 
 LinkCheckReq* LinkCheckReq_create()
@@ -73,7 +73,7 @@ void LinkAdrAns_extract(LinkAdrAns* cmd)
 void LinkAdrAns_destroy(LinkAdrAns* cmd)
 {
     free(cmd->status);
-    MacCommand_destroy(cmd->_cmd);
+    if (cmd->_cmd != NULL) MacCommand_destroy(cmd->_cmd);
     free(cmd);
 }
 
@@ -106,7 +106,7 @@ void DutyCycleAns_extract(DutyCycleAns* cmd)
 
 void DutyCycleAns_destroy(DutyCycleAns* cmd)
 {
-    MacCommand_destroy(cmd->_cmd);
+    if (cmd->_cmd != NULL) MacCommand_destroy(cmd->_cmd);
 }
 
 DutyCycleAns* DutyCycleAns_create()
@@ -139,7 +139,7 @@ void RxParamSetupAns_extract(RxParamSetupAns* cmd)
 void RxParamSetupAns_destroy(RxParamSetupAns* cmd)
 {
     free(cmd->status);
-    MacCommand_destroy(cmd->_cmd);
+    if (cmd->_cmd != NULL) MacCommand_destroy(cmd->_cmd);
     free(cmd);
 }
 
@@ -185,7 +185,7 @@ void DevStatusAns_destroy(DevStatusAns* cmd)
 {
     free(cmd->battery);
     free(cmd->radio_status);
-    MacCommand_destroy(cmd->_cmd);
+    if (cmd->_cmd != NULL) MacCommand_destroy(cmd->_cmd);
     free(cmd);
 }
 
@@ -228,7 +228,7 @@ void NewChannelAns_extract(NewChannelAns* cmd)
 void NewChannelAns_destroy(NewChannelAns* cmd)
 {
     free(cmd->status);
-    MacCommand_destroy(cmd->_cmd);
+    if (cmd->_cmd != NULL) MacCommand_destroy(cmd->_cmd);
     free(cmd);
 }
 
@@ -267,7 +267,7 @@ void DownlinkChannelAns_extract(DownlinkChannelAns* cmd)
 void DownlinkChannelAns_destroy(DownlinkChannelAns* cmd)
 {
     free(cmd->status);
-    MacCommand_destroy(cmd->_cmd);
+    if (cmd->_cmd != NULL) MacCommand_destroy(cmd->_cmd);
     free(cmd);
 }
 
@@ -299,7 +299,7 @@ void RXTimingSetupAns_extract(RXTimingSetupAns* cmd)
 
 void RXTimingSetupAns_destroy(RXTimingSetupAns* cmd)
 {
-    MacCommand_destroy(cmd->_cmd);
+    if (cmd->_cmd != NULL) MacCommand_destroy(cmd->_cmd);
 }
 
 RXTimingSetupAns* RXTimingSetupAns_create()
@@ -325,7 +325,7 @@ void DeviceTimeReq_extract(RXTimingSetupAns* cmd)
 
 void DeviceTimeReq_destroy(RXTimingSetupAns* cmd)
 {
-    MacCommand_destroy(cmd->_cmd);
+    if (cmd->_cmd != NULL) MacCommand_destroy(cmd->_cmd);
 }
 
 DeviceTimeReq* DeviceTimeReq_create()

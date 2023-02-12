@@ -16,7 +16,6 @@
 #define SET_BIT(value, offset) SET_BITS((value), 1, (offset))
 #define GET_BITS(value, mask, offset) BIT_MASK((value) >> (offset), (mask))
 
-
 void calculate_mic(
     unsigned char* key, 
     unsigned char* input, 
