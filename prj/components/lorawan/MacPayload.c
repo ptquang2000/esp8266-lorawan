@@ -507,7 +507,6 @@ int JoinAcceptPayload_validate(JoinAcceptPayload* payload)
 	size -= RX_DELAY_SIZE;
 	pdata += RX_DELAY_SIZE;
 
-
 	if (size == CFLIST_SIZE)
 	{
 		memcpy(payload->cf_list, pdata, BYTE_SIZE(CFLIST_SIZE));
