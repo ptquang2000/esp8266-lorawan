@@ -62,7 +62,7 @@ typedef struct Payload_struct
 	void* instance;
 } Payload;
 
-uint16_t Payload_validate(Payload* payload);
+int Payload_validate(Payload* payload);
 Payload* Payload_create_by_data(uint16_t size, uint8_t* data);
 void Payload_extract(Payload* payload);
 Payload* Payload_create();
@@ -97,7 +97,7 @@ typedef struct MacPayload_struct
 	void* instance;
 } MacPayload;
 
-uint16_t MacPayload_validate(MacPayload* payload, 
+int MacPayload_validate(MacPayload* payload, 
 	uint8_t* nwk_skey,
 	uint8_t* app_skey,
 	uint16_t direction);
@@ -153,7 +153,7 @@ typedef struct JoinAcceptPayload_struct
 } JoinAcceptPayload;
 
 void JoinAcceptPayload_extract(JoinAcceptPayload* payload);
-uint16_t JoinAcceptPayload_validate(JoinAcceptPayload* payload);
+int JoinAcceptPayload_validate(JoinAcceptPayload* payload);
 void JoinAcceptPayload_destroy(JoinAcceptPayload* payload);
 JoinAcceptPayload* JoinAcceptPayload_create_by_payload(Payload* payload);
 JoinAcceptPayload* JoinAcceptPayload_create(

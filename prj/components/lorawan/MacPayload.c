@@ -44,7 +44,7 @@ void Payload_extract(Payload* payload)
     
 }
 
-uint16_t Payload_validate(Payload* payload)
+int Payload_validate(Payload* payload)
 {
 	return -1;
 }
@@ -95,7 +95,7 @@ void FrameHeader_insert_cmd(FrameHeader* fhdr, MacCommand* cmd)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-uint16_t MacPayload_validate(MacPayload* payload, 
+int MacPayload_validate(MacPayload* payload, 
 	uint8_t* nwk_skey,
 	uint8_t* app_skey,
 	uint16_t direction)
@@ -476,7 +476,7 @@ JoinAcceptPayload* JoinAcceptPayload_create_by_payload(Payload* _payload)
 	return payload;
 }
 
-uint16_t JoinAcceptPayload_validate(JoinAcceptPayload* payload)
+int JoinAcceptPayload_validate(JoinAcceptPayload* payload)
 {
 	uint16_t size = payload->_payload->size;
 	if (size < JOIN_NONCE_SIZE + NET_ID_SIZE + DEV_ADDR_SIZE + 
@@ -503,20 +503,22 @@ uint16_t JoinAcceptPayload_validate(JoinAcceptPayload* payload)
 	size -= DLSETTINGS_SIZE;
 	pdata += DLSETTINGS_SIZE;
 
-	if (size == RX_DELAY_SIZE)
+	memcpy(payload->rx_delay, pdata, BYTE_SIZE(RX_DELAY_SIZE));
+	size -= RX_DELAY_SIZE;
+	pdata += RX_DELAY_SIZE;
+
+
+	if (size == CFLIST_SIZE)
+	{
+		memcpy(payload->cf_list, pdata, BYTE_SIZE(CFLIST_SIZE));
+		size -= CFLIST_SIZE;
+		pdata += CFLIST_SIZE;
+	}
+	else
 	{
 		free(payload->cf_list);
 		payload->cf_list = NULL;
 	}
-	else if (size == RX_DELAY_SIZE + CFLIST_SIZE)
-	{
-		memcpy(payload->cf_list, pdata, BYTE_SIZE(CFLIST_SIZE));
-		pdata += CFLIST_SIZE;
-	}
-
-	memcpy(payload->rx_delay, pdata, BYTE_SIZE(RX_DELAY_SIZE));
-	size -= RX_DELAY_SIZE;
-	pdata += RX_DELAY_SIZE;
 
 	if (size != 0)
 	{

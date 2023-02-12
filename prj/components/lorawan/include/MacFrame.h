@@ -48,7 +48,7 @@ typedef struct Frame_struct
 } Frame;
 
 uint16_t Frame_get_version(Frame* frame);
-uint16_t Frame_validate(Frame* frame);
+int Frame_validate(Frame* frame);
 void Frame_extract(Frame* frame);
 void Frame_destroy(Frame* frame);
 Frame* Frame_create_by_data(uint16_t size, uint8_t* data);
@@ -63,7 +63,7 @@ typedef struct MacFrame_struct
 	void* instance;
 } MacFrame;
 
-uint16_t MacFrame_validate(
+int MacFrame_validate(
 	MacFrame* frame,
 	uint8_t* nwk_skey,
 	uint8_t* app_skey,
@@ -104,7 +104,7 @@ typedef struct JoinAcceptFrame_struct
 	void* instance;
 } JoinAcceptFrame;
 
-uint16_t JoinAcceptFrame_validate(JoinAcceptFrame* frame, uint8_t* app_key);
+int JoinAcceptFrame_validate(JoinAcceptFrame* frame, uint8_t* app_key);
 void JoinAcceptFrame_extract(JoinAcceptFrame* frame, uint8_t* app_key);
 void JoinAcceptFrame_destroy(JoinAcceptFrame* frame);
 JoinAcceptFrame* JoinAcceptFrame_create_by_frame(Frame* i_frame);

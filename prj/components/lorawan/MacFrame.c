@@ -24,7 +24,7 @@ void Frame_extract(Frame* frame)
 {
 }
 
-uint16_t Frame_validate(Frame* frame)
+int Frame_validate(Frame* frame)
 {
 	if (frame->size < MINIMUM_PHYPAYLOAD_SIZE)
 	{
@@ -92,7 +92,7 @@ void Frame_destroy(Frame* frame)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-uint16_t MacFrame_validate(
+int MacFrame_validate(
 	MacFrame* frame,
 	uint8_t* nwk_skey,
 	uint8_t* app_skey,
@@ -295,7 +295,7 @@ JoinRequestFrame* JoinRequestFrame_create(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-uint16_t JoinAcceptFrame_validate(
+int JoinAcceptFrame_validate(
 	JoinAcceptFrame* frame,
 	uint8_t* app_key)
 {
