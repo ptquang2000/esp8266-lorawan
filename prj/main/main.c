@@ -1,7 +1,6 @@
 #include "SX1278.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/gpio.h"
 
 
 void on_tx_done(void* p)
@@ -63,22 +62,21 @@ void on_rx_done(void* p)
 
 void app_main(void)
 {
-    gpio_config_t io_conf;
-    io_conf.intr_type = GPIO_INTR_DISABLE;
-    io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = 1ULL<<4;
-    io_conf.pull_down_en = 0;
-    io_conf.pull_up_en = 0;
-    
-    gpio_config(&io_conf);
-    gpio_set_level(4, 1);
-    vTaskDelay(1 / portTICK_PERIOD_MS);
-    gpio_set_level(4, 0);
-    vTaskDelay(1 / portTICK_PERIOD_MS);
-    gpio_set_level(4, 1);
-    vTaskDelay(5 / portTICK_PERIOD_MS);
+    SX1278Settings settings = {
+        .pa_config.val = DEFAULT_PA_CONFIG,
+        .preamble_len = DEFAULT_PREAMBLE_LENGTH,
+        .modem_config1.val = DEFAULT_MODEM_CONFIG1,
+        .modem_config2.val = DEFAULT_MODEM_CONFIG2,
+        .sync_word = DEFAULT_SYNC_WORD,
+        .invert_iq.val = DEFAULT_INVERT_IQ,
+    };
 
-    SX1278Settings settings;
+    printf("pa %02x\n", settings.pa_config.val);
+    printf("preamble %02x\n", settings.preamble_len);
+    printf("cfg1 %02x\n", settings.modem_config1.val);
+    printf("cfg2 %02x\n", settings.modem_config2.val);
+    printf("sync_word %02x\n", settings.sync_word);
+    printf("iq %02x\n", settings.invert_iq.val);
     SX1278* dev = SX1278_create(&settings);
 
 #if 0
@@ -86,7 +84,7 @@ void app_main(void)
     xTaskNotifyGive(dev->tx_done_handle);
 #else
     xTaskCreate(on_rx_done, "rx_done", 1024, (void*)dev, tskIDLE_PRIORITY, &dev->rx_done_handle);
-    SX1278_start_rx(dev, RxContinuous, ExplicitHeaderMode);
+    SX1278_start_rx(dev, RxSingle, ExplicitHeaderMode);
 #endif
 
     while (1) {
