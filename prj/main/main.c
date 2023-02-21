@@ -70,13 +70,6 @@ void app_main(void)
         .sync_word = DEFAULT_SYNC_WORD,
         .invert_iq.val = DEFAULT_INVERT_IQ,
     };
-
-    printf("pa %02x\n", settings.pa_config.val);
-    printf("preamble %02x\n", settings.preamble_len);
-    printf("cfg1 %02x\n", settings.modem_config1.val);
-    printf("cfg2 %02x\n", settings.modem_config2.val);
-    printf("sync_word %02x\n", settings.sync_word);
-    printf("iq %02x\n", settings.invert_iq.val);
     SX1278* dev = SX1278_create(&settings);
 
 #if 0

@@ -1,7 +1,8 @@
 #!/bin/bash
 
-export WORKING_DIR="$(dirname "$0")"
+if [ $1 == "-b" ] && [ -n "$2" ]
+then ESPPORT="$2" 
+fi
 source setup.sh
 export IDF_PY=$IDF_PATH/tools/idf.py
-cd $WORKING_DIR/prj/test
-$IDF_PY flash monitor
+$IDF_PY -C prj/test -p $ESPPORT flash monitor

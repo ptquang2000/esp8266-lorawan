@@ -10,7 +10,7 @@ set(EXTRA_COMPONENT_DIRS "../components")
 # - when invoking CMake directly: cmake -D TEST_COMPONENTS="xxxxx" ..
 # - when using idf.py: idf.py -T xxxxx build
 #
-set(TEST_COMPONENTS "lorawan" CACHE STRING "List of components to test")
+set(TEST_COMPONENTS "sx1278" CACHE STRING "List of components to test")
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 add_compile_definitions(-DMBEDTLS_CMAC_C)
 project(lorawan_test)
