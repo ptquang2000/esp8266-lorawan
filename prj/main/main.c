@@ -63,14 +63,16 @@ void on_rx_done(void* p)
 void app_main(void)
 {
     SX1278Settings settings = {
+        .channel_freq = DEFAULT_SX1278_FREQUENCY,
         .pa_config.val = DEFAULT_PA_CONFIG,
         .preamble_len = DEFAULT_PREAMBLE_LENGTH,
         .modem_config1.val = DEFAULT_MODEM_CONFIG1,
         .modem_config2.val = DEFAULT_MODEM_CONFIG2,
         .sync_word = DEFAULT_SYNC_WORD,
-        .invert_iq.val = DEFAULT_INVERT_IQ,
+        .invert_iq.val = DEFAULT_NORMAL_IQ,
     };
-    SX1278* dev = SX1278_create(&settings);
+    SX1278* dev = SX1278_create();
+    SX1278_initialize(dev, &settings);
 
 #if 0
     xTaskCreate(on_tx_done, "tx_done", 1024, (void*)dev, tskIDLE_PRIORITY, &dev->tx_done_handle);
