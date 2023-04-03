@@ -1,0 +1,1 @@
+idf_component_register(SRCS ClassADevice.c INCLUDE_DIRS "include" REQUIRES sx1278 lorawan)
