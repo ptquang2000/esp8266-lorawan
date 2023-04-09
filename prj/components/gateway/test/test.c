@@ -11,7 +11,7 @@ static SX1278* s_lora = NULL;
 static uint8_t app_key[] = {0x0e, 0xfe, 0x82, 0x00, 0x6e, 0x16, 0x80, 0xfa, 0x90, 0x05, 0x2a, 0xce, 0x4c, 0xed, 0xe3, 0x3b};
 static uint8_t join_eui[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 static uint8_t dev_eui[] = {0xFE, 0xFF, 0xFF, 0x00, 0x00, 0x0A, 0xAA, 0xAA};
-static uint16_t s_dev_nonce = 0;
+static uint16_t s_dev_nonce = 1;
 
 void app_main(void)
 {
@@ -47,7 +47,7 @@ TEST_CASE("Publish Join Request", "[Gateway][MQTT]")
 
 TEST_CASE("Publish Join Request - Initial dev nonce", "[Gateway][MQTT]")
 {
-    s_dev_nonce = 0;
+    s_dev_nonce = 1;
     send_join_request();
 }
 

@@ -168,7 +168,16 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     case MQTT_EVENT_DATA:
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
         printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-        printf("DATA=%.*s\r\n", event->data_len, event->data);
+        printf("DATA=[");
+        for (size_t i = 0; i < event->data_len; i++)
+        {
+            printf("%d", event->data[i]);
+            if (event->data_len != i + 1)
+            {
+                printf(", ");
+            }
+        }
+        printf("]\n");
         if (strcmp(event->topic, CONFIG_MQTT_SUBTOPIC_JA))
         {
             FIFO fifo = {.size = event->data_len};
