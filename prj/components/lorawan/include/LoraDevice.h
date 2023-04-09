@@ -25,7 +25,6 @@ typedef struct LoraDevice_struct
 } LoraDevice;
 
 LoraDevice* LoraDevice_create(
-	uint32_t dev_addr,
 	uint8_t* app_key, 
 	uint8_t* join_eui, 
 	uint8_t* dev_eui, 

@@ -5,5 +5,6 @@ cmake_minimum_required(VERSION 3.5)
 set(EXTRA_COMPONENT_DIRS "components")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+link_libraries("-u _printf_float -u _scanf_float")
 add_compile_definitions(-DMBEDTLS_CMAC_C -DEND_DEVICE)
 project(lorawan)

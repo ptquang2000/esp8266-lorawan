@@ -1,49 +1,43 @@
 #include "MetaData.h"
 #include "cJSON.h"
 
-char* MetaData_create_json(MetaData* obj)
+void MetaData_create_json(MetaData* obj)
 {
     char *string = NULL;
-    cJSON *GatewayID = NULL;
-    cJSON *Rssi = NULL;
-    cJSON *Snr = NULL;
-    cJSON *Frame = NULL;
 
     cJSON *metaData = cJSON_CreateObject();
     if (metaData == NULL)
     {
         goto end;
     }
-
-    GatewayID = cJSON_CreateNumber(obj->id);
-    if (GatewayID == NULL)
+    if (cJSON_AddNumberToObject(metaData, "id", obj->id) == NULL)
     {
         goto end;
     }
-    cJSON_AddItemToObject(metaData, "GatewayID", GatewayID);
-
-    Rssi = cJSON_CreateNumber(obj->rssi);
-    if (Rssi == NULL)
+    if (cJSON_AddNumberToObject(metaData, "rssi", obj->rssi) == NULL)
     {
         goto end;
     }
-    cJSON_AddItemToObject(metaData, "Rssi", Rssi);
-
-    Snr = cJSON_CreateNumber(obj->snr);
-    if (Snr == NULL)
+    if (cJSON_AddNumberToObject(metaData, "snr", obj->snr) == NULL)
     {
         goto end;
     }
-    cJSON_AddItemToObject(metaData, "Snr", Snr);
-
-    Frame = cJSON_CreateString((char*) obj->frame->data);
-    if (Snr == NULL)
+    cJSON* frame = cJSON_AddArrayToObject(metaData, "frame");
+    if (frame == NULL)
     {
         goto end;
     }
-    cJSON_AddItemToObject(metaData, "Frame", Frame);
+    for (size_t i = 0; i < obj->size; i++)
+    {
+        cJSON* number = cJSON_CreateNumber(obj->frame[i]);
+        if (number == NULL)
+        {
+            goto end;
+        }
+        cJSON_AddItemToArray(frame, number);
+    }
 
-    string = cJSON_Print(metaData);
+    string = cJSON_PrintUnformatted(metaData);
     if (string == NULL)
     {
         fprintf(stderr, "Failed to print meta data.\n");
@@ -51,5 +45,10 @@ char* MetaData_create_json(MetaData* obj)
 
 end:
     cJSON_Delete(metaData);
-    return string;
+    obj->json = string;
+}
+
+void MetaData_free_json(MetaData* obj)
+{
+    free(obj->json);
 }

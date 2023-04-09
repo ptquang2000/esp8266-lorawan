@@ -31,7 +31,7 @@ typedef enum FrameType_enum
 typedef struct IFrame_struct
 {
 	void (*extract)();
-	uint16_t (*validate)();
+	int (*validate)();
 } IFrame;
 
 typedef struct Frame_struct
@@ -51,6 +51,7 @@ uint16_t Frame_get_version(Frame* frame);
 int Frame_validate(Frame* frame);
 void Frame_extract(Frame* frame);
 void Frame_destroy(Frame* frame);
+char* Frame_to_string(Frame* frame);
 Frame* Frame_create_by_data(uint16_t size, uint8_t* data);
 Frame* Frame_create(FrameType frame_type);
 

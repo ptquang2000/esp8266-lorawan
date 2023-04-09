@@ -15,5 +15,6 @@ set(EXTRA_COMPONENT_DIRS "../components")
 # set(TEST_COMPONENTS "$CACHE{TEST_NAME}" CACHE STRING "List of components to test")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+link_libraries("-u _printf_float -u _scanf_float")
 add_compile_definitions(-DMBEDTLS_CMAC_C)
 project(lorawan_test)

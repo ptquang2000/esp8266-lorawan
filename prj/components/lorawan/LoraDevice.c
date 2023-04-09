@@ -29,13 +29,13 @@ void LoraDevice_send_join_request(LoraDevice* device)
 	LoraDevice_incr_dev_nonce(device);
 }
 
-void LoraDevice_set_dev_addr(LoraDevice* device, uint32_t dev_addr)
-{
-	device->dev_addr[3] = (dev_addr >> 0) & 0xff;
-	device->dev_addr[2] = (dev_addr >> 8) & 0xff;
-	device->dev_addr[1] = (dev_addr >> 16) & 0xff;
-	device->dev_addr[0] = (dev_addr >> 24) & 0xff;
-}
+// void LoraDevice_set_dev_addr(LoraDevice* device, uint32_t dev_addr)
+// {
+// 	device->dev_addr[3] = (dev_addr >> 0) & 0xff;
+// 	device->dev_addr[2] = (dev_addr >> 8) & 0xff;
+// 	device->dev_addr[1] = (dev_addr >> 16) & 0xff;
+// 	device->dev_addr[0] = (dev_addr >> 24) & 0xff;
+// }
 
 void LoraDevice_destroy(LoraDevice* device)
 {
@@ -43,7 +43,6 @@ void LoraDevice_destroy(LoraDevice* device)
 }
 
 LoraDevice* LoraDevice_create(
-	uint32_t dev_addr,
 	uint8_t* app_key,
 	uint8_t* join_eui,
 	uint8_t* dev_eui,
@@ -56,7 +55,6 @@ LoraDevice* LoraDevice_create(
 	memcpy(device->join_eui, join_eui, BYTE_SIZE(JOIN_EUI_SIZE));
 	memcpy(device->dev_eui, dev_eui, BYTE_SIZE(DEV_EUI_SIZE));
 
-	LoraDevice_set_dev_addr(device, dev_addr);
 	LoraDevice_set_dev_nonce(device, dev_nonce);
 	
 	return device;

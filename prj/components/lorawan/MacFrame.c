@@ -1,4 +1,5 @@
 #include "MacFrame.h"
+#include "esp_base64.h"
 
 #define BLOCK_B_DIR_BYTE		5
 #define BLOCK_B_DIR_SIZE		1
@@ -88,6 +89,16 @@ void Frame_destroy(Frame* frame)
 	
 	free(frame->_iframe);
 	free(frame);
+}
+
+char* Frame_to_string(Frame* frame)
+{
+	size_t len;
+	char* string = malloc(sizeof(char) * (frame->size + 1));
+	memcpy(string, frame->data, frame->size);
+	// esp_base64_encode((unsigned char*)string, frame->size, frame->data, 256);
+	string[frame->size] = 0;
+	return string;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

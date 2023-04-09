@@ -2,25 +2,22 @@
 #include "LoraUtil.h"
 #include "unity.h"
 
-static uint8_t app_key[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-static uint8_t join_eui[] = {3, 3, 3, 3, 1, 1, 1, 1};
-static uint8_t dev_eui[] = {2, 2, 2, 2, 4, 4, 4, 4};
-static uint16_t dev_nonce = 772;
+static uint8_t s_app_key[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+static uint8_t s_join_eui[] = {3, 3, 3, 3, 1, 1, 1, 1};
+static uint8_t s_dev_eui[] = {2, 2, 2, 2, 4, 4, 4, 4};
+static uint16_t s_dev_nonce = 772;
 
 TEST_CASE("Test Join Request", "[JoinRequest]")
 {
-	uint32_t dev_addr = 0x01020304;
-    LoraDevice* device = LoraDevice_create(dev_addr, app_key, join_eui, dev_eui, dev_nonce);
-
-	JoinRequestFrame* frame = JoinRequestFrame_create(device->join_eui, device->dev_eui, device->dev_nonce);
-	frame->_iframe->extract(frame, device->app_key);
+	uint8_t dev_nonce[] = {(uint8_t)s_dev_nonce, (uint8_t)(s_dev_nonce >> 8)};
+	JoinRequestFrame* frame = JoinRequestFrame_create(s_join_eui, s_dev_eui, dev_nonce);
+	frame->_iframe->extract(frame, s_app_key);
 
 	uint8_t expected[] = {0, 3, 3, 3, 3, 1, 1, 1, 1, 2, 2, 2, 2, 4, 4, 4, 4, 4, 3, 12, 81, 205, 202};
 	TEST_ASSERT_EQUAL_INT(sizeof(expected), frame->_frame->size);
 	TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, frame->_frame->data, sizeof(expected));
 
 	JoinRequestFrame_destroy(frame);
-	LoraDevice_destroy(device);
 }
 
 TEST_CASE("Test JoinAccept frame validation without CFlist", "[JoinAccept]")
@@ -31,7 +28,7 @@ TEST_CASE("Test JoinAccept frame validation without CFlist", "[JoinAccept]")
 
 	JoinAcceptFrame* frame = JoinAcceptFrame_create_by_frame(_frame);
 	TEST_ASSERT_EQUAL(JoinAccept, frame->_frame->type);
-	TEST_ASSERT_EQUAL(0, frame->_iframe->validate(frame->instance, app_key));
+	TEST_ASSERT_EQUAL(0, frame->_iframe->validate(frame->instance, s_app_key));
 
 	uint8_t join_nonce[] = {1, 1, 1};
 	uint8_t net_id[] = {5, 6, 7};
@@ -60,7 +57,7 @@ TEST_CASE("Test JoinAccept frame validation with CFlist", "[JoinAccept]")
 
 	JoinAcceptFrame* frame = JoinAcceptFrame_create_by_frame(_frame);
 	TEST_ASSERT_EQUAL(JoinAccept, frame->_frame->type);
-	TEST_ASSERT_EQUAL(0, frame->_iframe->validate(frame->instance, app_key));
+	TEST_ASSERT_EQUAL(0, frame->_iframe->validate(frame->instance, s_app_key));
 
 	uint8_t join_nonce[] = {0, 0, 1};
 	uint8_t net_id[] = {3, 2, 1};

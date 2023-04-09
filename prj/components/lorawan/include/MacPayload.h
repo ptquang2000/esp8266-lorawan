@@ -50,7 +50,7 @@ typedef struct CFList_struct
 typedef struct IPayload_struct
 {
 	void (*extract)();
-	uint16_t (*validate)();
+	int (*validate)();
 } IPayload;
 
 typedef struct Payload_struct

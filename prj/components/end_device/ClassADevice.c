@@ -52,6 +52,25 @@ static QueueHandle_t s_rx_frame_queue = NULL;
 static uint8_t connection_state = 0;
 static uint32_t s_receive_window = 0; 
 
+static void start_rx()
+{
+    s_lora->fifo.size = 0;
+    s_settings.modem_config2.bits.rx_payload_crc_on = 0;
+    s_settings.invert_iq.val = DEFAULT_NORMAL_IQ;
+    s_settings.invert_iq.bits.rx = 1;
+    SX1278_initialize(s_lora, &s_settings);
+    SX1278_start_rx(s_lora, RxSingle, ExplicitHeaderMode);
+}
+
+static void start_tx()
+{
+    s_settings.modem_config2.bits.rx_payload_crc_on = 1;
+    s_settings.invert_iq.val = DEFAULT_NORMAL_IQ;
+    s_settings.invert_iq.bits.tx = 1;
+    SX1278_initialize(s_lora, &s_settings);
+    SX1278_start_tx(s_lora);
+}
+
 static void on_tx_done(void* p)
 {
     uint8_t on_done;
@@ -60,8 +79,7 @@ static void on_tx_done(void* p)
         on_done = ulTaskNotifyTake(pdTRUE, (TickType_t) portMAX_DELAY);
         if (on_done <= 0) continue;
 
-        s_lora->fifo.size = 0;
-        SX1278_start_rx(s_lora, RxSingle, ExplicitHeaderMode);
+        start_rx();
     }
 }
 
@@ -79,7 +97,7 @@ static void on_rx_done(void* p)
             long stop = (xTaskGetTickCount() - start) * portTICK_PERIOD_MS;
             if (stop < s_receive_window)
             {
-                SX1278_start_rx(s_lora, RxSingle, ExplicitHeaderMode);
+                start_rx();
             }
             else
             {
@@ -88,8 +106,8 @@ static void on_rx_done(void* p)
         }
         else
         {
-            Frame* frame = Frame_create_by_data(sizeof(s_lora->fifo.size), s_lora->fifo.buffer);
-            xQueueSend(s_rx_frame_queue, frame, (TickType_t) CONFIG_READING_TICKS);
+            Frame* frame = Frame_create_by_data(s_lora->fifo.size, s_lora->fifo.buffer);
+            xQueueSend(s_rx_frame_queue, frame, (TickType_t) 0);
             xSemaphoreGive(s_lora_mutex);
         }
     }
@@ -102,11 +120,11 @@ static void tx_frame_handler(void *p)
     {
         if (s_tx_frame_queue != NULL && xQueueReceive(s_tx_frame_queue, (void*)frame, (TickType_t) CONFIG_READING_TICKS))
         {
-            if (xSemaphoreTake(s_lora_mutex, (TickType_t) 0xFFFFFFFF) == 1 )
+            if (xSemaphoreTake(s_lora_mutex, (TickType_t) 0xFFFFFFFF) == 1)
             {
                 s_lora->fifo.size = 0;
                 SX1278_fill_fifo(s_lora, frame->data, frame->size);
-                SX1278_start_tx(s_lora);
+                start_tx();
                 Frame_destroy(frame);
             }
         }
@@ -115,7 +133,8 @@ static void tx_frame_handler(void *p)
 
 static void process_join_accept(JoinAcceptFrame* frame)
 {
-    if (memcmp(frame->payload->dev_addr, s_device->dev_addr, DEV_ADDR_SIZE))
+    int result = frame->_iframe->validate(frame->instance);
+    if (result == 0)
     {
         static uint8_t nwk_block[] = {
             0x1, 0x0, 0x0, 0x0,
@@ -137,9 +156,12 @@ static void process_join_accept(JoinAcceptFrame* frame)
         memcpy(&app_block[4], frame->payload->net_id, NET_ID_SIZE);
         memcpy(&app_block[7], s_device->dev_nonce, DEV_NONCE_SIZE);
         aes128_encrypt(s_device->app_key, app_block, s_device->app_skey, sizeof(app_block));
+
+        memcpy(s_device->dev_addr, frame->payload->dev_addr, DEV_ADDR_SIZE);
+
         connection_state = CONNECT_FINISH_STATE;
     }
-    else
+    else if (connection_state != CONNECT_FINISH_STATE)
     {
         connection_state = CONNECT_MISMATCH_STATE;
     }
@@ -147,12 +169,14 @@ static void process_join_accept(JoinAcceptFrame* frame)
 
 static void process_unconfirmed_dl(MacFrame* frame)
 {
-
+    int result = frame->_iframe->validate(frame->instance);
+    if (result != 0) return;
 }
 
 static void process_confirmed_dl(MacFrame* frame)
 {
-
+    int result = frame->_iframe->validate(frame->instance);
+    if (result != 0) return;
 }
 
 static void rx_frame_handler()
@@ -209,9 +233,8 @@ void ClassADevice_connect()
     {
         if (connection_state == CONNECT_MISMATCH_STATE)
         {
-            s_lora->fifo.size = 0;
             connection_state = CONNECT_START_STATE;
-            SX1278_start_rx(s_lora, RxSingle, ExplicitHeaderMode);
+            start_rx();
         }
         vTaskDelay(20 / portTICK_PERIOD_MS);
     }
@@ -229,8 +252,8 @@ void ClassADevice_register_event()
 
     s_lora_mutex = xSemaphoreCreateMutex();
 
-    xTaskCreate(tx_frame_handler, "classA_tx_frame_handler", 1024, NULL, tskIDLE_PRIORITY, s_tx_frame_handle);
-    xTaskCreate(rx_frame_handler, "classA_rx_frame_handler", 1024, NULL, tskIDLE_PRIORITY, s_rx_frame_handle);
+    xTaskCreate(tx_frame_handler, "classA_tx_frame_handler", 1024, NULL, tskIDLE_PRIORITY, &s_tx_frame_handle);
+    xTaskCreate(rx_frame_handler, "classA_rx_frame_handler", 1024, NULL, tskIDLE_PRIORITY, &s_rx_frame_handle);
     
     xTaskCreate(on_tx_done, "lora_tx_done", 1024, NULL, tskIDLE_PRIORITY, &s_lora->tx_done_handle);
     xTaskCreate(on_rx_done, "lora_rx_done", 1024, NULL, tskIDLE_PRIORITY, &s_lora->rx_done_handle);
@@ -246,5 +269,10 @@ void ClassADevice_intialize()
     s_settings.modem_config2.bits.rx_payload_crc_on = 1;
     SX1278_initialize(s_lora, &s_settings);
 
-    s_device = LoraDevice_create(g_dev_addr, g_app_key, g_join_eui, g_dev_eui, g_dev_nonce);
+    s_device = LoraDevice_create(g_app_key, g_join_eui, g_dev_eui, g_dev_nonce);
+}
+
+SX1278* ClassADevice_get_lora()
+{
+    return s_lora;
 }
