@@ -24,10 +24,10 @@
 
 #define GATEWAY_ID                          2
 
-#define CONFIG_MQTT_USERNAME               "station1"
+#define CONFIG_MQTT_USERNAME               "gateway1"
 #define CONFIG_MQTT_PASSWORD               "123456?aD"
-#define CONFIG_MQTT_SUBTOPIC_JA            "frames/joinaccept/station1"
-#define CONFIG_MQTT_SUBTOPIC_CFG           "gateways/station1"
+#define CONFIG_MQTT_SUBTOPIC_JA            "frames/joinaccept/gateway1"
+#define CONFIG_MQTT_SUBTOPIC_CFG           "gateways/gateway1"
 #define CONFIG_MQTT_PUBTOPIC_JR            "frames/joinrequest"
 #define CONFIG_MQTT_BROKER_URL              BROKER_URL
 #define CONFIG_MQTT_BROKER_PORT             1883
