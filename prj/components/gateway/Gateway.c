@@ -306,6 +306,7 @@ static void lora_tx_handler(void *p)
                 Frame_destroy(frame);
             }
         }
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
 
@@ -331,6 +332,7 @@ static void lora_rx_handler()
             MetaData_free_json(&meta_data);
             Frame_destroy(frame);
         }
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
 
@@ -344,11 +346,11 @@ void Gateway_register_event()
 
     s_lora_rx_mutex = xSemaphoreCreateMutex();
 
-    xTaskCreate(lora_tx_handler, "lora_tx_handler", 2048, NULL, tskIDLE_PRIORITY + 1, &s_lora_tx_handle);
-    xTaskCreate(lora_rx_handler, "lora_rx_handler", 2048, NULL, tskIDLE_PRIORITY + 1, &s_lora_rx_handle);
+    xTaskCreate(lora_tx_handler, "lora_tx_handler", 2048, NULL, tskIDLE_PRIORITY, &s_lora_tx_handle);
+    xTaskCreate(lora_rx_handler, "lora_rx_handler", 2048, NULL, tskIDLE_PRIORITY, &s_lora_rx_handle);
     
-    xTaskCreate(on_tx_done, "lora_tx_done", 1024, NULL, tskIDLE_PRIORITY + 1, &s_lora->tx_done_handle);
-    xTaskCreate(on_rx_done, "lora_rx_done", 1024, NULL, tskIDLE_PRIORITY + 1, &s_lora->rx_done_handle);
+    xTaskCreate(on_tx_done, "lora_tx_done", 1024, NULL, tskIDLE_PRIORITY, &s_lora->tx_done_handle);
+    xTaskCreate(on_rx_done, "lora_rx_done", 1024, NULL, tskIDLE_PRIORITY, &s_lora->rx_done_handle);
     
     start_rx();
 }

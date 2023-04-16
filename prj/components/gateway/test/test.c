@@ -21,7 +21,6 @@ void app_main(void)
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     s_lora = Gateway_get_lora();
-
     unity_run_menu();
 }
 
@@ -61,4 +60,12 @@ TEST_CASE("Publish Confirmed Data Uplink", "[Gateway][MQTT]")
 
 TEST_CASE("Publish Unconfirmed Data Uplink", "[Gateway][MQTT]")
 {
+}
+
+TEST_CASE("Loop", "[Gateway]")
+{
+    while (1)
+    {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
 }

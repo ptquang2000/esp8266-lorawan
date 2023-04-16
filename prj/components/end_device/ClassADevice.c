@@ -146,6 +146,7 @@ static void tx_frame_handler(void *p)
                 Frame_destroy(frame);
             }
         }
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
 
@@ -232,6 +233,7 @@ static void rx_frame_handler()
             break;
             }
         }
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
 
@@ -270,11 +272,11 @@ void ClassADevice_register_event()
 
     s_lora_mutex = xSemaphoreCreateMutex();
 
-    xTaskCreate(tx_frame_handler, "classA_tx_frame_handler", 1024, NULL, tskIDLE_PRIORITY + 1, &s_tx_frame_handle);
-    xTaskCreate(rx_frame_handler, "classA_rx_frame_handler", 1024, NULL, tskIDLE_PRIORITY + 1, &s_rx_frame_handle);
+    xTaskCreate(tx_frame_handler, "classA_tx_frame_handler", 1024, NULL, tskIDLE_PRIORITY, &s_tx_frame_handle);
+    xTaskCreate(rx_frame_handler, "classA_rx_frame_handler", 1024, NULL, tskIDLE_PRIORITY, &s_rx_frame_handle);
     
-    xTaskCreate(on_tx_done, "lora_tx_done", 1024, NULL, tskIDLE_PRIORITY + 1, &s_lora->tx_done_handle);
-    xTaskCreate(on_rx_done, "lora_rx_done", 1024, NULL, tskIDLE_PRIORITY + 1, &s_lora->rx_done_handle);
+    xTaskCreate(on_tx_done, "lora_tx_done", 1024, NULL, tskIDLE_PRIORITY, &s_lora->tx_done_handle);
+    xTaskCreate(on_rx_done, "lora_rx_done", 1024, NULL, tskIDLE_PRIORITY, &s_lora->rx_done_handle);
 }
 
 void ClassADevice_intialize(LoraDevice* device)
