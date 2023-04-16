@@ -12,6 +12,10 @@ set(EXTRA_COMPONENT_DIRS "../components")
 # For testing gateway component
 # ./start_tests.sh -p 'ESP PORT' -D TEST_COMPONENTS='gateway' -D WIFI_SSID='WIFI NAME' -D WIFI_PASSWORD='WIFI PASSWORD' -D BROKER_URL='BROKER IP'
 
+
+# For testing gateway component
+# ./start_tests.sh -p 'ESP PORT' -D TEST_COMPONENTS='end_device'
+
 # set(TEST_COMPONENTS "$CACHE{TEST_NAME}" CACHE STRING "List of components to test")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)

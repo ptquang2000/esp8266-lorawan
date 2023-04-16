@@ -50,10 +50,25 @@ static TaskHandle_t s_rx_frame_handle = NULL;
 static QueueHandle_t s_rx_frame_queue = NULL;
 
 static uint8_t connection_state = 0;
-static uint32_t s_receive_window = 0; 
+static uint32_t s_receive_window = 0;
+
+static void print_data(uint8_t* data, uint8_t data_len)
+{
+    printf("Data: [");
+    for (int i = 0; i < data_len; i++)
+    {
+        printf("%d", data[i]);
+        if (i != data_len - 1)
+        {
+            printf(", ");
+        }
+    }
+    printf("]\n");
+}
 
 static void start_rx()
 {
+    ESP_LOGI(TAG, "Start rx");
     s_lora->fifo.size = 0;
     s_settings.modem_config2.bits.rx_payload_crc_on = 0;
     s_settings.invert_iq.val = DEFAULT_NORMAL_IQ;
@@ -64,6 +79,7 @@ static void start_rx()
 
 static void start_tx()
 {
+    ESP_LOGI(TAG, "Start tx");
     s_settings.modem_config2.bits.rx_payload_crc_on = 1;
     s_settings.invert_iq.val = DEFAULT_NORMAL_IQ;
     s_settings.invert_iq.bits.tx = 1;
@@ -79,6 +95,7 @@ static void on_tx_done(void* p)
         on_done = ulTaskNotifyTake(pdTRUE, (TickType_t) portMAX_DELAY);
         if (on_done <= 0) continue;
 
+        ESP_LOGI(TAG, "On transmit done");
         start_rx();
     }
 }
@@ -107,7 +124,7 @@ static void on_rx_done(void* p)
         else
         {
             Frame* frame = Frame_create_by_data(s_lora->fifo.size, s_lora->fifo.buffer);
-            xQueueSend(s_rx_frame_queue, frame, (TickType_t) 0);
+            xQueueSend(s_rx_frame_queue, &frame, (TickType_t) 0);
             xSemaphoreGive(s_lora_mutex);
         }
     }
@@ -115,15 +132,16 @@ static void on_rx_done(void* p)
 
 static void tx_frame_handler(void *p)
 {
-    Frame* frame = NULL;
+    Frame* frame;
     while (true) 
     {
-        if (s_tx_frame_queue != NULL && xQueueReceive(s_tx_frame_queue, (void*)frame, (TickType_t) CONFIG_READING_TICKS))
+        if (s_tx_frame_queue != NULL && xQueueReceive(s_tx_frame_queue, (void*)&frame, (TickType_t) CONFIG_READING_TICKS))
         {
             if (xSemaphoreTake(s_lora_mutex, (TickType_t) 0xFFFFFFFF) == 1)
             {
                 s_lora->fifo.size = 0;
                 SX1278_fill_fifo(s_lora, frame->data, frame->size);
+                print_data(frame->data, frame->size);
                 start_tx();
                 Frame_destroy(frame);
             }
@@ -181,10 +199,10 @@ static void process_confirmed_dl(MacFrame* frame)
 
 static void rx_frame_handler()
 {
-    Frame* frame = NULL;
+    Frame* frame;
     while (true) 
     {
-        if (s_rx_frame_queue != NULL && xQueueReceive(s_rx_frame_queue, (void*)frame, (TickType_t) CONFIG_READING_TICKS))
+        if (s_rx_frame_queue != NULL && xQueueReceive(s_rx_frame_queue, (void*)&frame, (TickType_t) CONFIG_READING_TICKS))
         {
             switch (frame->type)
             {
@@ -226,7 +244,7 @@ void ClassADevice_connect()
 
     connection_state = CONNECT_START_STATE;
     Frame* tx_frame = Frame_create_by_data(frame->_frame->size, frame->_frame->data);
-    xQueueSendToFront(s_tx_frame_queue, tx_frame, (TickType_t)0);
+    xQueueSendToFront(s_tx_frame_queue, &tx_frame, (TickType_t)0);
 	JoinRequestFrame_destroy(frame);
     
     while (connection_state != CONNECT_FINISH_STATE)
@@ -247,29 +265,29 @@ void ClassADevice_send_data(uint8_t* data, uint8_t len)
 
 void ClassADevice_register_event()
 {
-    s_tx_frame_queue = xQueueCreate(CONFIG_MAX_FRAME_QUEUE, sizeof(Frame));
-    s_rx_frame_queue = xQueueCreate(CONFIG_MAX_FRAME_QUEUE, sizeof(Frame));
+    s_tx_frame_queue = xQueueCreate(CONFIG_MAX_FRAME_QUEUE, sizeof(Frame*));
+    s_rx_frame_queue = xQueueCreate(CONFIG_MAX_FRAME_QUEUE, sizeof(Frame*));
 
     s_lora_mutex = xSemaphoreCreateMutex();
 
-    xTaskCreate(tx_frame_handler, "classA_tx_frame_handler", 1024, NULL, tskIDLE_PRIORITY, &s_tx_frame_handle);
-    xTaskCreate(rx_frame_handler, "classA_rx_frame_handler", 1024, NULL, tskIDLE_PRIORITY, &s_rx_frame_handle);
+    xTaskCreate(tx_frame_handler, "classA_tx_frame_handler", 1024, NULL, tskIDLE_PRIORITY + 1, &s_tx_frame_handle);
+    xTaskCreate(rx_frame_handler, "classA_rx_frame_handler", 1024, NULL, tskIDLE_PRIORITY + 1, &s_rx_frame_handle);
     
-    xTaskCreate(on_tx_done, "lora_tx_done", 1024, NULL, tskIDLE_PRIORITY, &s_lora->tx_done_handle);
-    xTaskCreate(on_rx_done, "lora_rx_done", 1024, NULL, tskIDLE_PRIORITY, &s_lora->rx_done_handle);
+    xTaskCreate(on_tx_done, "lora_tx_done", 1024, NULL, tskIDLE_PRIORITY + 1, &s_lora->tx_done_handle);
+    xTaskCreate(on_rx_done, "lora_rx_done", 1024, NULL, tskIDLE_PRIORITY + 1, &s_lora->rx_done_handle);
 }
 
-void ClassADevice_intialize()
+void ClassADevice_intialize(LoraDevice* device)
 {
     s_lora = SX1278_create();
     s_settings.pa_config.bits.output_power = TxPower0;
     s_settings.channel_freq = RF433_175MHZ;
     s_settings.modem_config1.bits.bandwidth = Bw125kHz;
-    s_settings.modem_config2.bits.spreading_factor = SF12;
+    s_settings.modem_config2.bits.spreading_factor = SF11;
     s_settings.modem_config2.bits.rx_payload_crc_on = 1;
     SX1278_initialize(s_lora, &s_settings);
 
-    s_device = LoraDevice_create(g_app_key, g_join_eui, g_dev_eui, g_dev_nonce);
+    s_device = device;
 }
 
 SX1278* ClassADevice_get_lora()

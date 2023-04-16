@@ -1,1 +1,1 @@
-idf_component_register(SRC_DIRS "." INCLUDE_DIRS "." REQUIRES endevice unity)
+idf_component_register(SRC_DIRS "." INCLUDE_DIRS "." REQUIRES end_device unity)

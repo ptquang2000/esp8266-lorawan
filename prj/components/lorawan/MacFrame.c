@@ -52,6 +52,7 @@ Frame* Frame_create_by_data(uint16_t size, uint8_t* data)
 
 	ESP_ERROR_CHECK(size > MAXIMUM_PHYPAYLOAD_SIZE);
 	frame->size = size;
+	memset(frame->data, 0, BYTE_SIZE(size));
 	memcpy(frame->data, data, BYTE_SIZE(size));
 
 	ESP_ERROR_CHECK(frame->size < MINIMUM_PHYPAYLOAD_SIZE);
