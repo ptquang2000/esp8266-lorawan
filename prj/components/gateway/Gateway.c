@@ -22,7 +22,7 @@
 
 #include "esp_log.h"
 
-#define GATEWAY_ID                          2
+#define GATEWAY_ID                          1
 
 #define CONFIG_MQTT_USERNAME               "gateway1"
 #define CONFIG_MQTT_PASSWORD               "123456?aD"
@@ -58,13 +58,14 @@ static SX1278Settings s_settings = {
 };
 
 static SX1278* s_lora = NULL;
-static SemaphoreHandle_t s_lora_tx_mutex = NULL;
-static SemaphoreHandle_t s_lora_rx_mutex = NULL;
 
-static TaskHandle_t s_lora_tx_handle = NULL;
-static QueueHandle_t s_lora_tx_queue = NULL;
-static TaskHandle_t s_lora_rx_handle = NULL;
-static QueueHandle_t s_lora_rx_queue = NULL;
+static SemaphoreHandle_t s_tx_done_mutex = NULL;
+static SemaphoreHandle_t s_rx_done_mutex = NULL;
+
+static TaskHandle_t s_tx_frame_handle = NULL;
+static QueueHandle_t s_tx_queue = NULL;
+static TaskHandle_t s_rx_frame_handle = NULL;
+static QueueHandle_t s_rx_queue = NULL;
 
 static EventGroupHandle_t s_wifi_event_group;
 static int s_retry_num = 0;
@@ -182,7 +183,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         if (strcmp(event->topic, CONFIG_MQTT_SUBTOPIC_JA))
         {
             Frame* frame = Frame_create_by_data(event->data_len, (uint8_t*)event->data);
-            xQueueSend(s_lora_tx_queue, (void*)&frame, (TickType_t) 0);
+            xQueueSend(s_tx_queue, (void*)&frame, (TickType_t) 0);
         }
         break;
     case MQTT_EVENT_ERROR:
@@ -224,37 +225,28 @@ static void print_data(uint8_t* data, uint8_t data_len)
     printf("]\n");
 }
 
-static void start_rx()
-{
-    ESP_LOGI(TAG, "Start rx");
-    s_settings.modem_config2.bits.rx_payload_crc_on = 1;
-    s_settings.invert_iq.val = DEFAULT_NORMAL_IQ;
-    s_settings.invert_iq.bits.rx = 0;
-    SX1278_initialize(s_lora, &s_settings);
-    SX1278_start_rx(s_lora, RxSingle, ExplicitHeaderMode);
-}
-
-static void start_tx()
-{
-    ESP_LOGI(TAG, "Start tx");
-    s_settings.modem_config2.bits.rx_payload_crc_on = 0;
-    s_settings.invert_iq.val = DEFAULT_NORMAL_IQ;
-    s_settings.invert_iq.bits.tx = 0;
-    SX1278_initialize(s_lora, &s_settings);
-    SX1278_start_tx(s_lora);
-}
-
 static void on_tx_done(void* p)
 {
     uint8_t on_done;
     while (1)
     {
-        on_done = ulTaskNotifyTake(pdTRUE, (TickType_t) portMAX_DELAY);
+        on_done = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         if (on_done <= 0) continue;
 
-        ESP_LOGI(TAG, "On transmit done");
-        xSemaphoreGive(s_lora_rx_mutex);
+        xSemaphoreGive(s_tx_done_mutex);
+        vTaskDelete(s_lora->tx_done_handle);
     }
+}
+
+static void start_tx()
+{
+    s_settings.modem_config2.bits.rx_payload_crc_on = 0;
+    s_settings.invert_iq.val = DEFAULT_NORMAL_IQ;
+    s_settings.invert_iq.bits.tx = 0;
+    SX1278_initialize(s_lora, &s_settings);
+
+    xTaskCreate(on_tx_done, "lora_tx_done", 1024, NULL, tskIDLE_PRIORITY, &s_lora->tx_done_handle);
+    SX1278_start_tx(s_lora);
 }
 
 static void on_rx_done(void* p)
@@ -262,97 +254,124 @@ static void on_rx_done(void* p)
     uint8_t on_done;
     while (1)
     {
-        on_done = ulTaskNotifyTake(pdTRUE, (TickType_t) portMAX_DELAY);
+        on_done = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         if (on_done <= 0) continue;
-        
-        if (xSemaphoreTake(s_lora_rx_mutex, portMAX_DELAY ) == 1 )
+
+        xSemaphoreGive(s_rx_done_mutex);
+        vTaskDelete(s_lora->rx_done_handle);
+    }
+}
+
+static void start_rx()
+{
+    s_settings.modem_config2.bits.rx_payload_crc_on = 1;
+    s_settings.invert_iq.val = DEFAULT_NORMAL_IQ;
+    s_settings.invert_iq.bits.rx = 0;
+    SX1278_initialize(s_lora, &s_settings);
+
+    xTaskCreate(on_rx_done, "lora_rx_done", 1024, NULL, tskIDLE_PRIORITY, &s_lora->rx_done_handle);
+    SX1278_start_rx(s_lora, RxSingle, ExplicitHeaderMode);
+}
+
+static void tx_frame_handler(void *p)
+{
+    Frame* tx_frame;
+    double time_on_air = 0., off_duty_cycle = 0., offset = 0.;
+
+    while (1) 
+    {           
+        ESP_LOGI(TAG, "Start rx loop");
+        start_rx();
+        while (1)
         {
+            if (xSemaphoreTake(s_rx_done_mutex, portMAX_DELAY) != 1) 
+            {
+                ESP_LOGI(TAG, "Restart rx loop");
+                vTaskDelay(20 / portTICK_PERIOD_MS);
+                continue;
+            };
+
             if (s_lora->fifo.size != 0)
             {
-                ESP_LOGI(TAG, "Append new frame to rx queue");
+                ESP_LOGI(TAG, "Received a new frame");
                 Frame* frame = Frame_create_by_data(s_lora->fifo.size, s_lora->fifo.buffer);
                 print_data(s_lora->fifo.buffer, s_lora->fifo.size);
-                xQueueSend(s_lora_rx_queue, (void*)&frame, (TickType_t) 0);
+                xQueueSend(s_rx_queue, (void*)&frame, (TickType_t) 0);
                 s_lora->fifo.size = 0;
             }
 
-            if (uxQueueMessagesWaiting(s_lora_tx_queue) == 0)
+            if (uxQueueMessagesWaiting(s_tx_queue) == 0 
+            && time_on_air == 0. 
+            && off_duty_cycle == 0.)
             {
-                xSemaphoreGive(s_lora_rx_mutex);
                 start_rx();
+                continue;
             }
-            else 
-            {
-                ESP_LOGI(TAG, "Suspending rx for tx");
-                xSemaphoreGive(s_lora_tx_mutex);
-            }
+
+            offset = xTaskGetTickCount() - offset - off_duty_cycle;
+            if(uxQueueMessagesWaiting(s_tx_queue) > 0 && offset <= 0.) break;
+            else start_rx();
         }
-    }
-}
 
-
-static void lora_tx_handler(void *p)
-{
-    Frame* frame;
-    while (true) 
-    {
-        if (s_lora_tx_queue != NULL && xQueueReceive(s_lora_tx_queue, (void*)&frame, (TickType_t) CONFIG_READING_TICKS))
+        ESP_LOGI(TAG, "Start tx loop");
+        if (s_tx_queue != NULL && xQueueReceive(s_tx_queue, (void*)&tx_frame, (TickType_t) CONFIG_READING_TICKS))
         {
-            if (xSemaphoreTake(s_lora_tx_mutex, portMAX_DELAY) == 1 )
+            s_lora->fifo.size = 0;
+            SX1278_fill_fifo(s_lora, tx_frame->data, tx_frame->size);
+            print_data(tx_frame->data, tx_frame->size);
+
+            time_on_air = SX1278_get_toa(s_lora);
+            off_duty_cycle = time_on_air * 99 / portTICK_PERIOD_MS;
+            offset = xTaskGetTickCount();
+
+            start_tx();
+            while (1)
             {
-                ESP_LOGI(TAG, "Append new frame to tx queue");
-                SX1278_fill_fifo(s_lora, frame->data, frame->size);
-                start_tx(s_lora);
-                Frame_destroy(frame);
+                if (xSemaphoreTake(s_tx_done_mutex, portMAX_DELAY) == 1) break;   
+                else vTaskDelay(20 / portTICK_PERIOD_MS);
             }
+            Frame_destroy(tx_frame);
         }
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        vTaskDelay(20 / portTICK_PERIOD_MS);
     }
 }
 
-static void lora_rx_handler()
+static void rx_frame_handler()
 {
-    Frame* frame;
+    Frame* rx_frame;
     int msg_id;
-    while (true) 
+    while (1) 
     {
-        if (s_lora_rx_queue != NULL && xQueueReceive(s_lora_rx_queue, (void*)&frame, (TickType_t) CONFIG_READING_TICKS))
+        if (s_rx_queue != NULL && xQueueReceive(s_rx_queue, (void*)&rx_frame, (TickType_t) CONFIG_READING_TICKS))
         {
             MetaData meta_data = {
                 .id = GATEWAY_ID,
                 .rssi = s_lora->pkt_status.rssi,
                 .snr = s_lora->pkt_status.snr,
-                .frame = frame->data,
-                .size = frame->size,
+                .frame = rx_frame->data,
+                .size = rx_frame->size,
             };
             MetaData_create_json(&meta_data);
             msg_id = esp_mqtt_client_publish(s_mqtt_client, CONFIG_MQTT_PUBTOPIC_JR, meta_data.json, strlen(meta_data.json), 0, 0);
-            ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d, msg=%s", msg_id, meta_data.json);
+            ESP_LOGI(TAG, "Sent frame to network server successful, msg_id=%d, msg=%s", msg_id, meta_data.json);
 
             MetaData_free_json(&meta_data);
-            Frame_destroy(frame);
+            Frame_destroy(rx_frame);
         }
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        vTaskDelay(20 / portTICK_PERIOD_MS);
     }
 }
 
 void Gateway_register_event()
 {
-    s_lora_tx_queue = xQueueCreate(CONFIG_MAX_FRAME_QUEUE, sizeof(Frame*));
-    s_lora_rx_queue = xQueueCreate(CONFIG_MAX_FRAME_QUEUE, sizeof(Frame*));
+    s_tx_queue = xQueueCreate(CONFIG_MAX_FRAME_QUEUE, sizeof(Frame*));
+    s_rx_queue = xQueueCreate(CONFIG_MAX_FRAME_QUEUE, sizeof(Frame*));
 
-    s_lora_tx_mutex = xSemaphoreCreateMutex();
-    xSemaphoreTake(s_lora_tx_mutex, portMAX_DELAY);
+    s_tx_done_mutex = xSemaphoreCreateMutex();
+    s_rx_done_mutex = xSemaphoreCreateMutex();
 
-    s_lora_rx_mutex = xSemaphoreCreateMutex();
-
-    xTaskCreate(lora_tx_handler, "lora_tx_handler", 2048, NULL, tskIDLE_PRIORITY, &s_lora_tx_handle);
-    xTaskCreate(lora_rx_handler, "lora_rx_handler", 2048, NULL, tskIDLE_PRIORITY, &s_lora_rx_handle);
-    
-    xTaskCreate(on_tx_done, "lora_tx_done", 1024, NULL, tskIDLE_PRIORITY, &s_lora->tx_done_handle);
-    xTaskCreate(on_rx_done, "lora_rx_done", 1024, NULL, tskIDLE_PRIORITY, &s_lora->rx_done_handle);
-    
-    start_rx();
+    xTaskCreate(tx_frame_handler, "tx_frame_handler", 2048, NULL, tskIDLE_PRIORITY, &s_tx_frame_handle);
+    xTaskCreate(rx_frame_handler, "rx_frame_handler", 2048, NULL, tskIDLE_PRIORITY, &s_rx_frame_handle);
 }
 
 void Gateway_initialize()
