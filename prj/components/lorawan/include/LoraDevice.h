@@ -11,6 +11,8 @@
 #define DEV_EUI_SIZE	8
 #define DEV_NONCE_SIZE	2
 
+typedef struct JoinRequestFrame_struct JoinRequestFrame;
+
 typedef struct LoraDevice_struct
 {
 	uint8_t dev_addr[DEV_ADDR_SIZE];
@@ -24,6 +26,8 @@ typedef struct LoraDevice_struct
 	void* instance;
 } LoraDevice;
 
+JoinRequestFrame* LoraDevice_join_request(LoraDevice* device);
+void LoraDevice_incr_dev_nonce(LoraDevice* device);
 LoraDevice* LoraDevice_create(
 	uint8_t* app_key, 
 	uint8_t* join_eui, 

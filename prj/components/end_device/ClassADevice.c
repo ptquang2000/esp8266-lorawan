@@ -67,6 +67,7 @@ static void print_data(uint8_t* data, uint8_t data_len)
 
 static int process_join_accept(JoinAcceptFrame* frame)
 {
+    ESP_LOGI(TAG, "Processing join accept");
     int result = frame->_iframe->validate(frame->instance);
     if (result == 0) 
     {
@@ -167,6 +168,16 @@ static uint8_t is_resend(FrameType type)
     case ConfirmedDataUplink: return 1;
     case ConfirmedDataDownlink: return 1;
     default: return 0;
+    }
+}
+
+static void free_frame(Frame* frame)
+{
+    switch (frame->type)
+    {
+    case JoinRequest: JoinRequestFrame_destroy(frame->instance); break;
+    case JoinAccept: JoinAcceptFrame_destroy(frame->instance); break;
+    default: MacFrame_destroy(frame->instance); break;
     }
 }
 
@@ -317,12 +328,22 @@ static void ClassA_event_loop(void *p)
         continue_rx = 1;
         if (resend)
         {
-            xQueueSendToFront(s_tx_frame_queue, &tx_frame, (TickType_t)0);
+            switch (tx_frame->type)
+            {
+            case JoinRequest:
+            {
+                JoinRequestFrame* jr_frame = LoraDevice_join_request(s_device);
+                xQueueSendToFront(s_tx_frame_queue, &jr_frame->_frame, (TickType_t)0);
+            }
+            break;
+            case ConfirmedDataUplink: break;
+            case UnconfirmedDataUplink: break;
+            case Proprietary: break;
+            default: break;
+            }
         }
-        else
-        {
-            Frame_destroy(tx_frame);
-        }
+        free_frame(tx_frame);
+
         offset = xTaskGetTickCount() - offset - off_duty_cycle;
         if (offset > 0) vTaskDelay(offset);
         ESP_LOGI(TAG, "Ready for new tx requests");
@@ -331,19 +352,22 @@ static void ClassA_event_loop(void *p)
 
 void ClassADevice_connect()
 {
-    JoinRequestFrame* frame = JoinRequestFrame_create(s_device->join_eui, s_device->dev_eui, s_device->dev_nonce);
-	frame->_iframe->extract(frame, s_device->app_key);
+    if (s_device == NULL)
+    {
+        ESP_LOGE(TAG, "Required to call initialize first");
+        ESP_ERROR_CHECK(ESP_FAIL);
+    }
 
-    Frame* tx_frame = Frame_create_by_data(frame->_frame->size, frame->_frame->data);
-    xQueueSendToFront(s_tx_frame_queue, &tx_frame, (TickType_t)0);
-    xSemaphoreTake(s_joinaccept_mutex, portMAX_DELAY);
+    JoinRequestFrame* tx_frame = LoraDevice_join_request(s_device);
+    xQueueSendToFront(s_tx_frame_queue, &tx_frame->_frame, (TickType_t)0);
     
+    xSemaphoreTake(s_joinaccept_mutex, portMAX_DELAY);
     while (1)
     {
         if (xSemaphoreTake(s_joinaccept_mutex, portMAX_DELAY) == 1) break;
         vTaskDelay(20 / portTICK_PERIOD_MS);
     }
-	JoinRequestFrame_destroy(frame);
+    ESP_LOGI(TAG, "Device has connected to network server");
 }
 
 void ClassADevice_send_data(uint8_t* data, uint8_t len)

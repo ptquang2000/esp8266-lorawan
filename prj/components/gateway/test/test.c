@@ -25,7 +25,7 @@ void app_main(void)
     {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
-    unity_run_menu();
+    //unity_run_menu();
 }
 
 static void send_join_request()

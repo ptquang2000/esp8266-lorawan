@@ -300,12 +300,17 @@ static void tx_frame_handler(void *p)
                 s_lora->fifo.size = 0;
             }
 
-            if (uxQueueMessagesWaiting(s_tx_queue) == 0 
-            && time_on_air == 0. 
-            && off_duty_cycle == 0.)
+            if (off_duty_cycle == 0.)
             {
-                start_rx();
-                continue;
+                if (uxQueueMessagesWaiting(s_tx_queue) == 0)
+                {
+                    start_rx();
+                    continue;
+                }
+                else
+                {
+                    break;
+                }
             }
 
             offset = xTaskGetTickCount() - offset - off_duty_cycle;

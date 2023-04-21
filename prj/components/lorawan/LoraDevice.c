@@ -18,15 +18,13 @@ void LoraDevice_incr_dev_nonce(LoraDevice* device)
 	LoraDevice_set_dev_nonce(device, dev_nonce);
 }
 
-void LoraDevice_send_join_request(LoraDevice* device)
+JoinRequestFrame* LoraDevice_join_request(LoraDevice* device)
 {
-	JoinRequestFrame* frame = JoinRequestFrame_create(
-		device->join_eui,
-		device->dev_eui,
-		device->dev_nonce);
-	frame->_iframe->extract(frame->instance, device->app_key);
-	JoinRequestFrame_destroy(frame);
-	LoraDevice_incr_dev_nonce(device);
+    LoraDevice_incr_dev_nonce(device);
+	
+    JoinRequestFrame* jr_frame = JoinRequestFrame_create(device->join_eui, device->dev_eui, device->dev_nonce);
+	jr_frame->_iframe->extract(jr_frame, device->app_key);
+	return jr_frame;
 }
 
 // void LoraDevice_set_dev_addr(LoraDevice* device, uint32_t dev_addr)
