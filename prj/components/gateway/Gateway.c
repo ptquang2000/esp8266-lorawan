@@ -278,9 +278,13 @@ static void tx_frame_handler(void *p)
             if (xSemaphoreTake(s_rx_done_mutex, (TickType_t) 100 / portTICK_PERIOD_MS) != 1) 
             {
                 offset = xTaskGetTickCount() - offset - off_duty_cycle;
-                if(uxQueueMessagesWaiting(s_tx_queue) > 0 && offset <= 0.) break;
-                else continue;
-            };
+                if(uxQueueMessagesWaiting(s_tx_queue) > 0 && offset <= 0.) 
+                {
+                    ESP_LOGI(TAG, "break");
+                    SX1278_switch_mode(s_lora, Standby);
+                    break;
+                }
+            }
 
             if (s_lora->fifo.size != 0)
             {

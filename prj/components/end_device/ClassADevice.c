@@ -56,10 +56,10 @@ static void print_data(uint8_t* data, uint8_t data_len)
     printf("Data: [");
     for (int i = 0; i < data_len; i++)
     {
-        printf("%x", data[i]);
+        printf("%02x", data[i]);
         if (i != data_len - 1)
         {
-            // printf(", ");
+            printf(", ");
         }
     }
     printf("]\n");
@@ -233,7 +233,6 @@ static void ClassA_event_loop(void *p)
             if (end > rx_window || continue_rx == 0)
             {
                 ESP_LOGI(TAG, "Rx window timeout");
-                SX1278_switch_mode(s_lora, Standby);
                 continue_rx = 0;
                 break;
             }
@@ -320,6 +319,7 @@ static void ClassA_event_loop(void *p)
             }
         }
 
+        SX1278_switch_mode(s_lora, Standby);
         continue_rx = 1;
         if (resend)
         {
