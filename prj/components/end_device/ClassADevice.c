@@ -56,10 +56,10 @@ static void print_data(uint8_t* data, uint8_t data_len)
     printf("Data: [");
     for (int i = 0; i < data_len; i++)
     {
-        printf("%d", data[i]);
+        printf("%x", data[i]);
         if (i != data_len - 1)
         {
-            printf(", ");
+            // printf(", ");
         }
     }
     printf("]\n");
@@ -67,8 +67,8 @@ static void print_data(uint8_t* data, uint8_t data_len)
 
 static int process_join_accept(JoinAcceptFrame* frame)
 {
-    ESP_LOGI(TAG, "Processing join accept");
-    int result = frame->_iframe->validate(frame->instance);
+    int result = frame->_iframe->validate(frame->instance, s_device->app_key);
+    ESP_LOGI(TAG, "Processing join accept result %d", result);
     if (result == 0) 
     {
         static uint8_t nwk_block[] = {
@@ -133,7 +133,7 @@ static void start_rx()
     SX1278_initialize(s_lora, &s_settings);
 
     xTaskCreate(on_rx_done, "lora_rx_done", 1024, NULL, tskIDLE_PRIORITY, &s_lora->rx_done_handle);
-    SX1278_start_rx(s_lora, RxSingle, ExplicitHeaderMode);
+    SX1278_start_rx(s_lora, RxContinuous, ExplicitHeaderMode);
 }
 
 static void on_tx_done(void* p)
@@ -229,22 +229,32 @@ static void ClassA_event_loop(void *p)
         ESP_LOGI(TAG, "Open rx window");
         while (continue_rx)
         {
-            if (xSemaphoreTake(s_rx_done_mutex, portMAX_DELAY) != 1) 
+            end = (xTaskGetTickCount() - begin) * portTICK_PERIOD_MS;
+            if (end > rx_window || continue_rx == 0)
+            {
+                ESP_LOGI(TAG, "Rx window timeout");
+                SX1278_switch_mode(s_lora, Standby);
+                continue_rx = 0;
+                break;
+            }
+
+            if (xSemaphoreTake(s_rx_done_mutex, (TickType_t) rx_window / portTICK_PERIOD_MS) != 1) 
             {
                 vTaskDelay(20 / portTICK_PERIOD_MS);
                 continue;
-            };
+            }
 
             if (s_lora->fifo.size > 0)
             {
                 continue_rx = 0;
                 Frame* rx_frame = Frame_create_by_data(s_lora->fifo.size, s_lora->fifo.buffer);
+                print_data(rx_frame->data, rx_frame->size);
 
                 switch (rx_frame->type)
                 {
                 case JoinAccept:
                 {
-                    ESP_LOGI(TAG, "Recevie a join accept frame");
+                    ESP_LOGI(TAG, "Recevied a join accept frame");
                     if (tx_frame->type != JoinRequest) 
                     {
                         continue_rx = 1;
@@ -269,7 +279,7 @@ static void ClassA_event_loop(void *p)
                 break;
                 case UnconfirmDataDownlink:
                 {
-                    ESP_LOGI(TAG, "Recevie a unconfirmed data downlink frame");
+                    ESP_LOGI(TAG, "Recevied a unconfirmed data downlink frame");
                     if (tx_frame->type != ConfirmedDataUplink) 
                     {
                         continue_rx = 1;
@@ -285,7 +295,7 @@ static void ClassA_event_loop(void *p)
                 break;
                 case ConfirmedDataDownlink:
                 {
-                    ESP_LOGI(TAG, "Recevie a confirmed data downlink frame");
+                    ESP_LOGI(TAG, "Recevied a confirmed data downlink frame");
                     if (tx_frame->type != ConfirmedDataUplink) 
                     {
                         continue_rx = 1;
@@ -308,21 +318,6 @@ static void ClassA_event_loop(void *p)
                 break;
                 }
             }
-
-            if (continue_rx == 1)
-            {
-                end = (xTaskGetTickCount() - begin) * portTICK_PERIOD_MS;
-                if (end > rx_window)
-                {
-                    ESP_LOGI(TAG, "Rx windown timeout");
-                    continue_rx = 0;
-                    break;
-                }
-                else
-                {
-                    start_rx();
-                }
-            } 
         }
 
         continue_rx = 1;
@@ -382,6 +377,8 @@ void ClassADevice_register_event()
     s_rx_done_mutex = xSemaphoreCreateMutex();
     s_joinaccept_mutex = xSemaphoreCreateMutex();
 
+    xSemaphoreTake(s_tx_done_mutex, portMAX_DELAY);
+    xSemaphoreTake(s_rx_done_mutex, portMAX_DELAY);
     xTaskCreate(ClassA_event_loop, "classA_event_loop", 1024, NULL, tskIDLE_PRIORITY, &s_event_loop_handle);
 }
 
@@ -392,7 +389,6 @@ void ClassADevice_intialize(LoraDevice* device)
     s_settings.channel_freq = RF433_175MHZ;
     s_settings.modem_config1.bits.bandwidth = Bw125kHz;
     s_settings.modem_config2.bits.spreading_factor = SF11;
-    s_settings.modem_config2.bits.rx_payload_crc_on = 1;
     SX1278_initialize(s_lora, &s_settings);
 
     s_device = device;

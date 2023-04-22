@@ -170,16 +170,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     case MQTT_EVENT_DATA:
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
         printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-        printf("DATA=[");
-        for (size_t i = 0; i < event->data_len; i++)
-        {
-            printf("%d", event->data[i]);
-            if (event->data_len != i + 1)
-            {
-                printf(", ");
-            }
-        }
-        printf("]\n");
         if (strcmp(event->topic, CONFIG_MQTT_SUBTOPIC_JA))
         {
             Frame* frame = Frame_create_by_data(event->data_len, (uint8_t*)event->data);
@@ -216,7 +206,7 @@ static void print_data(uint8_t* data, uint8_t data_len)
     printf("Data: [");
     for (int i = 0; i < data_len; i++)
     {
-        printf("%d", data[i]);
+        printf("%02x", data[i]);
         if (i != data_len - 1)
         {
             printf(", ");
@@ -264,19 +254,20 @@ static void on_rx_done(void* p)
 
 static void start_rx()
 {
+    s_lora->fifo.size = 0;
     s_settings.modem_config2.bits.rx_payload_crc_on = 1;
     s_settings.invert_iq.val = DEFAULT_NORMAL_IQ;
     s_settings.invert_iq.bits.rx = 0;
     SX1278_initialize(s_lora, &s_settings);
 
     xTaskCreate(on_rx_done, "lora_rx_done", 1024, NULL, tskIDLE_PRIORITY, &s_lora->rx_done_handle);
-    SX1278_start_rx(s_lora, RxSingle, ExplicitHeaderMode);
+    SX1278_start_rx(s_lora, RxContinuous, ExplicitHeaderMode);
 }
 
 static void tx_frame_handler(void *p)
 {
     Frame* tx_frame;
-    double time_on_air = 0., off_duty_cycle = 0., offset = 0.;
+    double time_on_air = 0., off_duty_cycle = 0., offset = (double)portMAX_DELAY;
 
     while (1) 
     {           
@@ -284,11 +275,11 @@ static void tx_frame_handler(void *p)
         start_rx();
         while (1)
         {
-            if (xSemaphoreTake(s_rx_done_mutex, portMAX_DELAY) != 1) 
+            if (xSemaphoreTake(s_rx_done_mutex, (TickType_t) 100 / portTICK_PERIOD_MS) != 1) 
             {
-                ESP_LOGI(TAG, "Restart rx loop");
-                vTaskDelay(20 / portTICK_PERIOD_MS);
-                continue;
+                offset = xTaskGetTickCount() - offset - off_duty_cycle;
+                if(uxQueueMessagesWaiting(s_tx_queue) > 0 && offset <= 0.) break;
+                else continue;
             };
 
             if (s_lora->fifo.size != 0)
@@ -299,23 +290,6 @@ static void tx_frame_handler(void *p)
                 xQueueSend(s_rx_queue, (void*)&frame, (TickType_t) 0);
                 s_lora->fifo.size = 0;
             }
-
-            if (off_duty_cycle == 0.)
-            {
-                if (uxQueueMessagesWaiting(s_tx_queue) == 0)
-                {
-                    start_rx();
-                    continue;
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            offset = xTaskGetTickCount() - offset - off_duty_cycle;
-            if(uxQueueMessagesWaiting(s_tx_queue) > 0 && offset <= 0.) break;
-            else start_rx();
         }
 
         ESP_LOGI(TAG, "Start tx loop");
@@ -374,6 +348,8 @@ void Gateway_register_event()
 
     s_tx_done_mutex = xSemaphoreCreateMutex();
     s_rx_done_mutex = xSemaphoreCreateMutex();
+    xSemaphoreTake(s_tx_done_mutex, portMAX_DELAY);
+    xSemaphoreTake(s_rx_done_mutex, portMAX_DELAY);
 
     xTaskCreate(tx_frame_handler, "tx_frame_handler", 2048, NULL, tskIDLE_PRIORITY, &s_tx_frame_handle);
     xTaskCreate(rx_frame_handler, "rx_frame_handler", 2048, NULL, tskIDLE_PRIORITY, &s_rx_frame_handle);
@@ -394,7 +370,6 @@ void Gateway_initialize()
     s_settings.channel_freq = RF433_175MHZ;
     s_settings.modem_config1.bits.bandwidth = Bw125kHz;
     s_settings.modem_config2.bits.spreading_factor = SF11;
-    s_settings.modem_config2.bits.rx_payload_crc_on = 1;
     SX1278_initialize(s_lora, &s_settings);
 }
 

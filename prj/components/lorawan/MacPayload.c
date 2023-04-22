@@ -19,6 +19,8 @@ static uint8_t block_a[BLOCK_A_SIZE] = {
 };
 static uint16_t s_max_app_payload = 242;
 
+static const char* TAG = "MacPayload";
+
 ////////////////////////////////////////////////////////////////////////////////
 
 void set_max_app_payload(uint16_t dr)
@@ -482,6 +484,7 @@ int JoinAcceptPayload_validate(JoinAcceptPayload* payload)
 	if (size < JOIN_NONCE_SIZE + NET_ID_SIZE + DEV_ADDR_SIZE + 
 		DLSETTINGS_SIZE + RX_DELAY_SIZE) 
 	{
+		ESP_LOGE(TAG, "Payload is not in adequate size %d", size);
 		return INVALID_DATA_SIZE;
 	}
 
@@ -521,6 +524,7 @@ int JoinAcceptPayload_validate(JoinAcceptPayload* payload)
 
 	if (size != 0)
 	{
+		ESP_LOGE(TAG, "Redundant data payload left %d", size);
 		return INVALID_DATA_SIZE;
 	}
 	

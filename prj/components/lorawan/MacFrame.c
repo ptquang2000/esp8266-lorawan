@@ -1,5 +1,5 @@
 #include "MacFrame.h"
-#include "esp_base64.h"
+#include "LoraUtil.h"
 
 #define BLOCK_B_DIR_BYTE		5
 #define BLOCK_B_DIR_SIZE		1
@@ -11,6 +11,8 @@
 #define BLOCK_B_MESSAGE_SIZE	1
 
 #define BLOCK_B0_SIZE			16
+
+static const char* TAG = "MacFrame";
 
 static uint8_t block_b0[BLOCK_B0_SIZE] = {
 	0x49, 0x00, 0x00, 0x00,
@@ -112,7 +114,7 @@ int MacFrame_validate(
 	uint8_t* dev_addr,
 	uint16_t frame_counter)
 {
-	uint16_t result = 0;
+	int result = 0;
 	uint16_t size_no_mic = frame->_frame->size - MIC_SIZE;
 	memset(
 		&block_b0[BLOCK_B_DIR_BYTE], 
@@ -311,7 +313,7 @@ int JoinAcceptFrame_validate(
 	JoinAcceptFrame* frame,
 	uint8_t* app_key)
 {
-	uint16_t result = 0;
+	int result = 0;
 	uint8_t* data = malloc(BYTE_SIZE(frame->_frame->size));
 	memcpy(data, frame->_frame->data, MHDR_SIZE);
 	aes128_encrypt(

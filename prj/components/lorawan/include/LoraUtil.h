@@ -7,6 +7,8 @@
 #include "stdlib.h"
 #include "stdio.h"
 #include "esp_system.h"
+#include "esp_log.h"
+#include "esp_base64.h"
 
 #define INVALID_MIC			-1
 #define INVALID_DATA_SIZE	-2
