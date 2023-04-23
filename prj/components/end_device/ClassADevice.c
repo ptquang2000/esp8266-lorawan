@@ -18,7 +18,7 @@
 #define CONFIG_RECEIVE_DELAY        2
 #define CONFIG_RX1_DR_OFFSET        0
 
-#define CONFIG_MAX_FRAME_QUEUE      5
+#define CONFIG_MAX_FRAME_QUEUE      128
 #define CONFIG_READING_TICKS        5
 
 #define CONNECT_START_STATE         0
@@ -28,6 +28,7 @@
 
 
 static const char *TAG = "CLASS A";
+static uint16_t s_frame_counter = 0;
 
 static SX1278Settings s_settings = {
     .channel_freq = DEFAULT_SX1278_FREQUENCY,
@@ -48,8 +49,8 @@ static SemaphoreHandle_t s_rx_done_mutex = NULL;
 static TaskHandle_t s_event_loop_handle = NULL;
 static QueueHandle_t s_tx_frame_queue = NULL;
 
-static TaskHandle_t s_downlink_handle = NULL;
 static SemaphoreHandle_t s_joinaccept_mutex = NULL;
+static SemaphoreHandle_t s_downlink_mutex = NULL;
 
 static void print_data(uint8_t* data, uint8_t data_len)
 {
@@ -68,7 +69,6 @@ static void print_data(uint8_t* data, uint8_t data_len)
 static int process_join_accept(JoinAcceptFrame* frame)
 {
     int result = frame->_iframe->validate(frame->instance, s_device->app_key);
-    ESP_LOGI(TAG, "Processing join accept result %d", result);
     if (result == 0) 
     {
         static uint8_t nwk_block[] = {
@@ -94,25 +94,51 @@ static int process_join_accept(JoinAcceptFrame* frame)
 
         memcpy(s_device->dev_addr, frame->payload->dev_addr, DEV_ADDR_SIZE);
     }
+    ESP_LOGI(TAG, "Processed join accept result %d", result);
     return result;
 }
 
-static void process_unconfirmed_dl(MacFrame* frame)
+static int process_unconfirmed_dl(MacFrame* frame)
 {
-    int result = frame->_iframe->validate(frame->instance);
-    if (result != 0) return;
+    int result = frame->_iframe->validate(
+        frame->instance,
+        s_device->nwk_skey,
+        s_device->app_skey,
+        1,
+        s_device->dev_addr,
+        s_frame_counter);
+    if (result == 0)
+    {
+        result = frame->payload->fhdr->is_ack == 0 ? ACK_IS_UNSET : result;
+        result = frame->payload->fhdr->frame_counter != s_frame_counter ? INVALID_FCNT : result;
+        s_frame_counter += 1;
+    }
+    ESP_LOGI(TAG, "Processed unconfirmed downlink result %d", result);
+    return result;
 }
 
-static void process_confirmed_dl(MacFrame* frame)
+static int process_confirmed_dl(MacFrame* frame)
 {
-    int result = frame->_iframe->validate(frame->instance);
-    if (result != 0) return;
+    int result = frame->_iframe->validate(
+        frame->instance, 
+        s_device->nwk_skey, 
+        s_device->app_skey, 
+        1, 
+        s_device->dev_addr, 
+        s_frame_counter);
+    if (result == 0)
+    {
+        result = frame->payload->fhdr->is_ack == 0 ? ACK_IS_UNSET : result;
+        result = frame->payload->fhdr->frame_counter != s_frame_counter ? INVALID_FCNT : result;
+        s_frame_counter += 1;
+    }
+    ESP_LOGI(TAG, "Processed confirmed downlink result %d", result);
+    return result;
 }
 
 static void on_rx_done(void* p)
 {
     uint8_t on_done;
-    long start = xTaskGetTickCount();
     
     while (1)
     {
@@ -188,6 +214,7 @@ static void ClassA_event_loop(void *p)
     uint32_t rx_window = 0;
     long begin = 0, end = 0;
     uint8_t resend = 0, continue_rx = 1;
+    int result;
 
     ESP_LOGI(TAG, "Ready for new tx requests");
     while (1) 
@@ -224,117 +251,134 @@ static void ClassA_event_loop(void *p)
         vTaskDelay(time_on_air / portTICK_PERIOD_MS);
         ESP_LOGI(TAG, "Frame was sent");
 
-        start_rx();
-        begin = xTaskGetTickCount();
-        ESP_LOGI(TAG, "Open rx window");
-        while (continue_rx)
+        if (resend)
         {
-            end = (xTaskGetTickCount() - begin) * portTICK_PERIOD_MS;
-            if (end > rx_window || continue_rx == 0)
+            start_rx();
+            begin = xTaskGetTickCount();
+            ESP_LOGI(TAG, "Open rx window");
+            while (continue_rx)
             {
-                ESP_LOGI(TAG, "Rx window timeout");
-                continue_rx = 0;
-                break;
-            }
-
-            if (xSemaphoreTake(s_rx_done_mutex, (TickType_t) rx_window / portTICK_PERIOD_MS) != 1) 
-            {
-                vTaskDelay(20 / portTICK_PERIOD_MS);
-                continue;
-            }
-
-            if (s_lora->fifo.size > 0)
-            {
-                continue_rx = 0;
-                Frame* rx_frame = Frame_create_by_data(s_lora->fifo.size, s_lora->fifo.buffer);
-                print_data(rx_frame->data, rx_frame->size);
-
-                switch (rx_frame->type)
+                end = (xTaskGetTickCount() - begin) * portTICK_PERIOD_MS;
+                if (end > rx_window || continue_rx == 0)
                 {
-                case JoinAccept:
+                    ESP_LOGI(TAG, "Rx window timeout");
+                    continue_rx = 0;
+                    break;
+                }
+
+                if (xSemaphoreTake(s_rx_done_mutex, (TickType_t) rx_window / portTICK_PERIOD_MS) != 1) 
                 {
-                    ESP_LOGI(TAG, "Recevied a join accept frame");
-                    if (tx_frame->type != JoinRequest) 
+                    vTaskDelay(20 / portTICK_PERIOD_MS);
+                    continue;
+                }
+
+                if (s_lora->fifo.size > 0)
+                {
+                    continue_rx = 0;
+                    Frame* rx_frame = Frame_create_by_data(s_lora->fifo.size, s_lora->fifo.buffer);
+                    print_data(rx_frame->data, rx_frame->size);
+
+                    switch (rx_frame->type)
                     {
-                        continue_rx = 1;
-                        Frame_destroy(rx_frame);
-                    }
-                    else
+                    case JoinAccept:
                     {
-                        JoinAcceptFrame* join_accept = JoinAcceptFrame_create_by_frame(rx_frame);
-                        int result = process_join_accept(join_accept);
-                        JoinAcceptFrame_destroy(join_accept);
-                        if (result != 0) 
+                        ESP_LOGI(TAG, "Recevied a join accept frame");
+                        if (tx_frame->type != JoinRequest) 
                         {
                             continue_rx = 1;
+                            Frame_destroy(rx_frame);
+                        }
+                        else
+                        {
+                            JoinAcceptFrame* join_accept = JoinAcceptFrame_create_by_frame(rx_frame);
+                            result = process_join_accept(join_accept);
+                            JoinAcceptFrame_destroy(join_accept);
+                            if (result != 0) 
+                            {
+                                continue_rx = 1;
+                            }
+                            else 
+                            {
+                                resend = 0;
+                                xSemaphoreGive(s_joinaccept_mutex);
+                            }
+                        }
+                    }
+                    break;
+                    case UnconfirmDataDownlink:
+                    {
+                        ESP_LOGI(TAG, "Recevied a unconfirmed data downlink frame");
+                        if (tx_frame->type != ConfirmedDataUplink) 
+                        {
+                            continue_rx = 1;
+                            Frame_destroy(rx_frame);
                         }
                         else 
                         {
-                            resend = 0;
-                            xSemaphoreGive(s_joinaccept_mutex);
+                            MacFrame* udl = MacFrame_create_by_frame(rx_frame);
+                            result = process_unconfirmed_dl(udl);
+                            MacFrame_destroy(udl);
+                            if (result != 0) 
+                            {
+                                continue_rx = 1;
+                            }
+                            else 
+                            {
+                                resend = 0;
+                                xSemaphoreGive(s_downlink_mutex);
+                            }
                         }
                     }
-                }
-                break;
-                case UnconfirmDataDownlink:
-                {
-                    ESP_LOGI(TAG, "Recevied a unconfirmed data downlink frame");
-                    if (tx_frame->type != ConfirmedDataUplink) 
+                    break;
+                    case ConfirmedDataDownlink:
                     {
+                        ESP_LOGI(TAG, "Recevied a confirmed data downlink frame");
+                        if (tx_frame->type != ConfirmedDataUplink) 
+                        {
+                            continue_rx = 1;
+                            Frame_destroy(rx_frame);
+                        }
+                        else 
+                        {
+                            MacFrame* cdl = MacFrame_create_by_frame(rx_frame);
+                            result = process_confirmed_dl(cdl);
+                            MacFrame_destroy(cdl);
+                        }
+                    }
+                    break;
+                    default:
+                    {
+                        ESP_LOGI(TAG, "Recevie an unexpected frame");
                         continue_rx = 1;
                         Frame_destroy(rx_frame);
                     }
-                    else 
-                    {
-                        MacFrame* udl = MacFrame_create_by_frame(rx_frame);
-                        process_unconfirmed_dl(udl);
-                        MacFrame_destroy(udl);
+                    break;
                     }
-                }
-                break;
-                case ConfirmedDataDownlink:
-                {
-                    ESP_LOGI(TAG, "Recevied a confirmed data downlink frame");
-                    if (tx_frame->type != ConfirmedDataUplink) 
-                    {
-                        continue_rx = 1;
-                        Frame_destroy(rx_frame);
-                    }
-                    else 
-                    {
-                        MacFrame* cdl = MacFrame_create_by_frame(rx_frame);
-                        process_confirmed_dl(cdl);
-                        MacFrame_destroy(cdl);
-                    }
-                }
-                break;
-                default:
-                {
-                    ESP_LOGI(TAG, "Recevie an unexpected frame");
-                    continue_rx = 1;
-                    Frame_destroy(rx_frame);
-                }
-                break;
                 }
             }
-        }
 
-        SX1278_switch_mode(s_lora, Standby);
-        continue_rx = 1;
-        if (resend)
-        {
-            switch (tx_frame->type)
+            SX1278_switch_mode(s_lora, Standby);
+            continue_rx = 1;
+            if (resend)
             {
-            case JoinRequest:
-            {
-                JoinRequestFrame* jr_frame = LoraDevice_join_request(s_device);
-                xQueueSendToFront(s_tx_frame_queue, &jr_frame->_frame, (TickType_t)0);
-            }
-            break;
-            case ConfirmedDataUplink: break;
-            case UnconfirmedDataUplink: break;
-            case Proprietary: break;
-            default: break;
+                switch (tx_frame->type)
+                {
+                case JoinRequest:
+                {
+                    JoinRequestFrame* jr_frame = LoraDevice_join_request(s_device);
+                    xQueueSendToFront(s_tx_frame_queue, &jr_frame->_frame, (TickType_t)0);
+                }
+                break;
+                case ConfirmedDataUplink:
+                {
+                    Frame* tmp = Frame_create_by_data(tx_frame->size, tx_frame->data);
+                    MacFrame* mc_frame = MacFrame_create_by_frame(tmp);
+                    xQueueSendToFront(s_tx_frame_queue, &mc_frame->_frame, (TickType_t)0);
+                }
+                break;
+                case Proprietary: break;
+                default: break;
+                }
             }
         }
         free_frame(tx_frame);
@@ -356,17 +400,45 @@ void ClassADevice_connect()
     JoinRequestFrame* tx_frame = LoraDevice_join_request(s_device);
     xQueueSendToFront(s_tx_frame_queue, &tx_frame->_frame, (TickType_t)0);
     
-    xSemaphoreTake(s_joinaccept_mutex, portMAX_DELAY);
     while (1)
     {
-        if (xSemaphoreTake(s_joinaccept_mutex, portMAX_DELAY) == 1) break;
-        vTaskDelay(20 / portTICK_PERIOD_MS);
+        if (xSemaphoreTake(s_joinaccept_mutex, (TickType_t) 200 / portTICK_PERIOD_MS) == 1) break;
     }
+
+    s_frame_counter = 0;
     ESP_LOGI(TAG, "Device has connected to network server");
 }
 
-void ClassADevice_send_data(uint8_t* data, uint8_t len)
+void ClassADevice_send_data_confirmed(uint8_t* data, uint8_t len, uint8_t fport)
 {
+    if (s_device == NULL)
+    {
+        ESP_LOGE(TAG, "Required to call initialize first");
+        ESP_ERROR_CHECK(ESP_FAIL);
+    }
+
+    MacFrame* tx_frame = LoraDevice_confirmed_uplink(s_device, fport, len, data);
+    xQueueSendToFront(s_tx_frame_queue, &tx_frame->_frame, (TickType_t)0);
+
+    while (1)
+    {
+        if (xSemaphoreTake(s_downlink_mutex, (TickType_t) 200 / portTICK_PERIOD_MS) == 1) break;
+        vTaskDelay(20 / portTICK_PERIOD_MS);
+    }
+    ESP_LOGI(TAG, "Data have sent to network server");
+}
+
+void ClassADevice_send_data_unconfirmed(uint8_t* data, uint8_t len, uint8_t fport)
+{
+    if (s_device == NULL)
+    {
+        ESP_LOGE(TAG, "Required to call initialize first");
+        ESP_ERROR_CHECK(ESP_FAIL);
+    }
+
+    MacFrame* tx_frame = LoraDevice_unconfirmed_uplink(s_device, fport, len, data);
+    xQueueSendToFront(s_tx_frame_queue, &tx_frame->_frame, (TickType_t)0);
+    ESP_LOGI(TAG, "Data have sent to network server");
 }
 
 void ClassADevice_register_event()
@@ -376,9 +448,12 @@ void ClassADevice_register_event()
     s_tx_done_mutex = xSemaphoreCreateMutex();
     s_rx_done_mutex = xSemaphoreCreateMutex();
     s_joinaccept_mutex = xSemaphoreCreateMutex();
+    s_downlink_mutex = xSemaphoreCreateMutex();
 
     xSemaphoreTake(s_tx_done_mutex, portMAX_DELAY);
     xSemaphoreTake(s_rx_done_mutex, portMAX_DELAY);
+    xSemaphoreTake(s_downlink_mutex, portMAX_DELAY);
+    xSemaphoreTake(s_joinaccept_mutex, portMAX_DELAY);
     xTaskCreate(ClassA_event_loop, "classA_event_loop", 1024, NULL, tskIDLE_PRIORITY, &s_event_loop_handle);
 }
 

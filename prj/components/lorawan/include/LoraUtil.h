@@ -12,6 +12,8 @@
 
 #define INVALID_MIC			-1
 #define INVALID_DATA_SIZE	-2
+#define ACK_IS_UNSET		-3
+#define INVALID_FCNT		-4
 
 #define BYTE_SIZE(size) (sizeof(uint8_t) * (size))
 #define BIT_MASK(value, mask) ((value) & ((1 << (mask)) - 1))

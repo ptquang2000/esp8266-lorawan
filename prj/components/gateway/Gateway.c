@@ -22,13 +22,17 @@
 
 #include "esp_log.h"
 
+#define DISABLE_DUTY_CYCLE
+
 #define GATEWAY_ID                          1
 
 #define CONFIG_MQTT_USERNAME               "gateway1"
 #define CONFIG_MQTT_PASSWORD               "123456?aD"
 #define CONFIG_MQTT_SUBTOPIC_JA            "frames/joinaccept/gateway1"
+#define CONFIG_MQTT_SUBTOPIC_DL            "frames/downlink/gateway1"
 #define CONFIG_MQTT_SUBTOPIC_CFG           "gateways/gateway1"
 #define CONFIG_MQTT_PUBTOPIC_JR            "frames/joinrequest"
+#define CONFIG_MQTT_PUBTOPIC_UL            "frames/uplink"
 #define CONFIG_MQTT_BROKER_URL              BROKER_URL
 #define CONFIG_MQTT_BROKER_PORT             1883
 
@@ -153,6 +157,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
         msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBTOPIC_JA, 0);
         ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
+        msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBTOPIC_DL, 0);
+        ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
         break;
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
@@ -169,8 +175,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         break;
     case MQTT_EVENT_DATA:
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-        printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-        if (strcmp(event->topic, CONFIG_MQTT_SUBTOPIC_JA))
+        ESP_LOGI(TAG, "TOPIC=%.*s\r\n", event->topic_len, event->topic);
+        if (memcmp(event->topic, CONFIG_MQTT_SUBTOPIC_CFG, event->topic_len) != 0)
         {
             Frame* frame = Frame_create_by_data(event->data_len, (uint8_t*)event->data);
             xQueueSend(s_tx_queue, (void*)&frame, (TickType_t) 0);
@@ -267,7 +273,7 @@ static void start_rx()
 static void tx_frame_handler(void *p)
 {
     Frame* tx_frame;
-    double time_on_air = 0., off_duty_cycle = 0., offset = (double)portMAX_DELAY;
+    double time_on_air, duty_cycle, off_duty_cycle = 0., tx_start = 0.;
 
     while (1) 
     {           
@@ -277,12 +283,19 @@ static void tx_frame_handler(void *p)
         {
             if (xSemaphoreTake(s_rx_done_mutex, (TickType_t) 100 / portTICK_PERIOD_MS) != 1) 
             {
-                offset = xTaskGetTickCount() - offset - off_duty_cycle;
-                if(uxQueueMessagesWaiting(s_tx_queue) > 0 && offset <= 0.) 
+#ifdef DISABLE_DUTY_CYCLE
+                duty_cycle = 1.;
+#else
+                duty_cycle = xTaskGetTickCount() - tx_start - off_duty_cycle;
+#endif
+                if(uxQueueMessagesWaiting(s_tx_queue) > 0 && duty_cycle > 0.)
                 {
-                    ESP_LOGI(TAG, "break");
                     SX1278_switch_mode(s_lora, Standby);
                     break;
+                }
+                else
+                {
+                    // ESP_LOGI(TAG, "duty cycle: %f, %d", duty_cycle, uxQueueMessagesWaiting(s_tx_queue));
                 }
             }
 
@@ -304,8 +317,8 @@ static void tx_frame_handler(void *p)
             print_data(tx_frame->data, tx_frame->size);
 
             time_on_air = SX1278_get_toa(s_lora);
-            off_duty_cycle = time_on_air * 99 / portTICK_PERIOD_MS;
-            offset = xTaskGetTickCount();
+            off_duty_cycle = time_on_air * 90 / portTICK_PERIOD_MS;
+            tx_start = xTaskGetTickCount();
 
             start_tx();
             while (1)
@@ -335,7 +348,15 @@ static void rx_frame_handler()
                 .size = rx_frame->size,
             };
             MetaData_create_json(&meta_data);
-            msg_id = esp_mqtt_client_publish(s_mqtt_client, CONFIG_MQTT_PUBTOPIC_JR, meta_data.json, strlen(meta_data.json), 0, 0);
+
+            if (rx_frame->type == JoinRequest)
+            {
+                msg_id = esp_mqtt_client_publish(s_mqtt_client, CONFIG_MQTT_PUBTOPIC_JR, meta_data.json, strlen(meta_data.json), 0, 0);
+            }
+            else
+            {
+                msg_id = esp_mqtt_client_publish(s_mqtt_client, CONFIG_MQTT_PUBTOPIC_UL, meta_data.json, strlen(meta_data.json), 0, 0);
+            }
             ESP_LOGI(TAG, "Sent frame to network server successful, msg_id=%d, msg=%s", msg_id, meta_data.json);
 
             MetaData_free_json(&meta_data);

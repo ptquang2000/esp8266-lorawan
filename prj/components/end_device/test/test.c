@@ -26,3 +26,17 @@ TEST_CASE("Class A connect", "[Class A]")
 {
     ClassADevice_connect();
 }
+
+TEST_CASE("Class A unconfirmed uplink", "[Class A]")
+{
+    const static uint8_t data[] = {'u','n','c','o','n','f','i','r','m','e','d',' ','m','s','g'};
+    ClassADevice_send_data_unconfirmed(data, sizeof(data), 10);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+}
+
+TEST_CASE("Class A confirmed uplink", "[Class A]")
+{
+    const static uint8_t data[] = {'c','o','n','f','i','r','m','e','d',' ','m','s','g'};
+    ClassADevice_send_data_confirmed(data, sizeof(data), 10);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+}

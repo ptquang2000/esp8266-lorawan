@@ -12,6 +12,7 @@
 #define DEV_NONCE_SIZE	2
 
 typedef struct JoinRequestFrame_struct JoinRequestFrame;
+typedef struct MacFrame_struct MacFrame;
 
 typedef struct LoraDevice_struct
 {
@@ -26,6 +27,16 @@ typedef struct LoraDevice_struct
 	void* instance;
 } LoraDevice;
 
+MacFrame* LoraDevice_confirmed_uplink(
+	LoraDevice* device, 
+	uint8_t fport, 
+	uint8_t len, 
+	uint8_t* data);
+MacFrame* LoraDevice_unconfirmed_uplink(
+	LoraDevice* device, 
+	uint8_t fport, 
+	uint8_t len, 
+	uint8_t* data);
 JoinRequestFrame* LoraDevice_join_request(LoraDevice* device);
 void LoraDevice_incr_dev_nonce(LoraDevice* device);
 LoraDevice* LoraDevice_create(

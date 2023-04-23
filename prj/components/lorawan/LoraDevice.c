@@ -3,6 +3,15 @@
 #include "stdlib.h"
 
 
+static FrameHeader s_fhdr = {
+	.is_adr = 0,
+	.is_adr_ack_req = 0,
+	.is_ack = 0,
+	.frame_counter = 0,
+	.fpending = 0,
+	.fopts_len = 0
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 
 void LoraDevice_set_dev_nonce(LoraDevice* device, uint16_t dev_nonce)
@@ -24,7 +33,35 @@ JoinRequestFrame* LoraDevice_join_request(LoraDevice* device)
 	
     JoinRequestFrame* jr_frame = JoinRequestFrame_create(device->join_eui, device->dev_eui, device->dev_nonce);
 	jr_frame->_iframe->extract(jr_frame, device->app_key);
+
+	s_fhdr.frame_counter = 0;
 	return jr_frame;
+}
+
+MacFrame* LoraDevice_confirmed_uplink(LoraDevice* device, uint8_t fport, uint8_t len, uint8_t* data)
+{
+	memcpy(s_fhdr.dev_addr, device->dev_addr, DEV_ADDR_SIZE);
+
+	MacFrame* mframe = MacFrame_create(ConfirmedDataUplink, &s_fhdr);
+	MacPayload_set_app_payload(mframe->payload, fport, len, data);
+	mframe->_iframe->extract(mframe->instance, device->nwk_skey, device->app_skey, 0);
+
+	s_fhdr.frame_counter += 1;
+
+	return mframe;
+}
+
+MacFrame* LoraDevice_unconfirmed_uplink(LoraDevice* device, uint8_t fport, uint8_t len, uint8_t* data)
+{
+	memcpy(s_fhdr.dev_addr, device->dev_addr, DEV_ADDR_SIZE);
+
+	MacFrame* mframe = MacFrame_create(UnconfirmedDataUplink, &s_fhdr);
+	MacPayload_set_app_payload(mframe->payload, fport, len, data);
+	mframe->_iframe->extract(mframe->instance, device->nwk_skey, device->app_skey, 0);
+
+	s_fhdr.frame_counter += 1;
+
+	return mframe;
 }
 
 // void LoraDevice_set_dev_addr(LoraDevice* device, uint32_t dev_addr)
