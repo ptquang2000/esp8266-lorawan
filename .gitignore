@@ -3,3 +3,4 @@ build
 xtensa-lx106-elf
 msys32
 cmd.txt
+.cache

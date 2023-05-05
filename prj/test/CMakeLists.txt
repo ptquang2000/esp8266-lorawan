@@ -4,16 +4,16 @@ cmake_minimum_required(VERSION 3.16)
 set(EXTRA_COMPONENT_DIRS "../components")
 
 # For testing lorawan component
-# ./start_tests.sh -p 'ESP PORT' -D TEST_COMPONENTS='lorawan'
+# test lorawan ESP_PORT
 
 # For testing sx1278 component
-# ./start_tests.sh -p 'ESP PORT' -D TEST_COMPONENTS='sx1278'
+# test sx1278 ESP_PORT
 
 # For testing gateway component
-# ./start_tests.sh -p 'ESP PORT' -D TEST_COMPONENTS='gateway' -D WIFI_SSID='WIFI NAME' -D WIFI_PASSWORD='WIFI PASSWORD' -D BROKER_URL='BROKER IP'
+# test gateway ESP_PORT -D WIFI_SSID="WIFI ID" -D WIFI_PASSWORD="WIFI PASSWORD" -D BROKER_URL="MQTT URL"
 
-# For testing gateway component
-# ./start_tests.sh -p 'ESP PORT' -D TEST_COMPONENTS='end_device'
+# For testing end_device component
+# test end_device ESP_PORT 
 
 # set(TEST_COMPONENTS "$CACHE{TEST_NAME}" CACHE STRING "List of components to test")
 

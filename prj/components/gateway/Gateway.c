@@ -23,14 +23,16 @@
 #include "esp_log.h"
 
 #define DISABLE_DUTY_CYCLE
+#define STRINGTIFY(x)                       #x
+#define GATEWAY_ID_STR(x)                   STRINGTIFY(x) 
 
 #define GATEWAY_ID                          1
 
-#define CONFIG_MQTT_USERNAME               "gateway1"
+#define CONFIG_MQTT_USERNAME               "gateway" GATEWAY_ID_STR(GATEWAY_ID)
 #define CONFIG_MQTT_PASSWORD               "123456?aD"
-#define CONFIG_MQTT_SUBTOPIC_JA            "frames/joinaccept/gateway1"
-#define CONFIG_MQTT_SUBTOPIC_DL            "frames/downlink/gateway1"
-#define CONFIG_MQTT_SUBTOPIC_CFG           "gateways/gateway1"
+#define CONFIG_MQTT_SUBTOPIC_JA            "frames/joinaccept/gateway" GATEWAY_ID_STR(GATEWAY_ID) 
+#define CONFIG_MQTT_SUBTOPIC_DL            "frames/downlink/gateway" GATEWAY_ID_STR(GATEWAY_ID) 
+#define CONFIG_MQTT_SUBTOPIC_CFG           "gateways/gateway" GATEWAY_ID_STR(GATEWAY_ID) 
 #define CONFIG_MQTT_PUBTOPIC_JR            "frames/joinrequest"
 #define CONFIG_MQTT_PUBTOPIC_UL            "frames/uplink"
 #define CONFIG_MQTT_BROKER_URL              BROKER_URL
@@ -288,7 +290,7 @@ static void tx_frame_handler(void *p)
 #else
                 duty_cycle = xTaskGetTickCount() - tx_start - off_duty_cycle;
 #endif
-                if(uxQueueMessagesWaiting(s_tx_queue) > 0 && duty_cycle > 0.)
+                if (uxQueueMessagesWaiting(s_tx_queue) > 0 && duty_cycle > 0.)
                 {
                     SX1278_switch_mode(s_lora, Standby);
                     break;
