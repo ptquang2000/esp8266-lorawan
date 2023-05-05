@@ -22,34 +22,6 @@
 
 #include "esp_log.h"
 
-#define DISABLE_DUTY_CYCLE
-#define STRINGTIFY(x)                       #x
-#define GATEWAY_ID_STR(x)                   STRINGTIFY(x) 
-
-#define GATEWAY_ID                          1
-
-#define CONFIG_MQTT_USERNAME               "gateway" GATEWAY_ID_STR(GATEWAY_ID)
-#define CONFIG_MQTT_PASSWORD               "123456?aD"
-#define CONFIG_MQTT_SUBTOPIC_JA            "frames/joinaccept/gateway" GATEWAY_ID_STR(GATEWAY_ID) 
-#define CONFIG_MQTT_SUBTOPIC_DL            "frames/downlink/gateway" GATEWAY_ID_STR(GATEWAY_ID) 
-#define CONFIG_MQTT_SUBTOPIC_CFG           "gateways/gateway" GATEWAY_ID_STR(GATEWAY_ID) 
-#define CONFIG_MQTT_PUBTOPIC_JR            "frames/joinrequest"
-#define CONFIG_MQTT_PUBTOPIC_UL            "frames/uplink"
-#define CONFIG_MQTT_BROKER_URL              BROKER_URL
-#define CONFIG_MQTT_BROKER_PORT             1883
-
-#define CONFIG_LORAWAN_NETID                0
-
-#define CONFIG_ESP_WIFI_SSID                WIFI_SSID
-#define CONFIG_ESP_WIFI_PASSWORD            WIFI_PASSWORD
-#define CONFIG_ESP_MAXIMUM_RETRY            5
-#define WIFI_CONNECTED_BIT                  BIT0
-#define WIFI_FAIL_BIT                       BIT1
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD   WIFI_AUTH_OPEN
-
-#define CONFIG_MAX_FRAME_QUEUE              5
-#define CONFIG_READING_TICKS                5
-
 
 static const char *TAG = "GATEWAY";
 
@@ -177,7 +149,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         break;
     case MQTT_EVENT_DATA:
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-        ESP_LOGI(TAG, "TOPIC=%.*s\r\n", event->topic_len, event->topic);
+        ESP_LOGI(TAG, "TOPIC=%.*s\r", event->topic_len, event->topic);
         if (memcmp(event->topic, CONFIG_MQTT_SUBTOPIC_CFG, event->topic_len) != 0)
         {
             Frame* frame = Frame_create_by_data(event->data_len, (uint8_t*)event->data);

@@ -12,23 +12,6 @@
 
 #include "MacFrame.h"
 
-#define DISABLE_DUTY_CYCLE
-
-#define CONFIG_JOIN_ACCEPT_DELAY    6
-#define CONFIG_ADR_ACK_LIMIT        64
-#define CONFIG_ADR_ACK_DELAY        32
-#define CONFIG_RECEIVE_DELAY        2
-#define CONFIG_RX1_DR_OFFSET        0
-#define CONFIG_NB_TRANS             3
-
-#define CONFIG_MAX_FRAME_QUEUE      128
-#define CONFIG_READING_TICKS        5
-
-#define CONNECT_START_STATE         0
-#define CONNECT_MISMATCH_STATE      1
-#define CONNECT_FINISH_STATE        2
-#define CONNECT_TIMEOUT_STATE       3
-
 
 static const char *TAG = "CLASS A";
 static uint16_t s_frame_counter = 0; // for tracking downlink frame counter (aka Du increasment)
@@ -219,8 +202,7 @@ static void free_frame(Frame* frame)
 static void ClassA_event_loop(void *p)
 {
     Frame* tx_frame;
-    double time_on_air = 0., off_duty_cycle = 0., offset = 0.;
-    uint32_t rx_window = 0;
+    double time_on_air = 0., off_duty_cycle = 0., offset = 0., rx_delay = 0.;
     long begin = 0, end = 0;
     uint8_t resend = 0, continue_rx = 1;
     int result;
@@ -236,6 +218,7 @@ static void ClassA_event_loop(void *p)
 
         s_lora->fifo.size = 0;
         SX1278_fill_fifo(s_lora, tx_frame->data, tx_frame->size);
+        ESP_LOGI(TAG, "Sending: ");
         print_data(tx_frame->data, tx_frame->size);
 
         time_on_air = SX1278_get_toa(s_lora);
@@ -243,11 +226,11 @@ static void ClassA_event_loop(void *p)
         offset = xTaskGetTickCount();
         if (tx_frame->type == JoinRequest)
         {
-            rx_window = CONFIG_JOIN_ACCEPT_DELAY * 1000;
+            rx_delay = CONFIG_JOIN_ACCEPT_DELAY / portTICK_PERIOD_MS;
         }
         else
         {
-            rx_window = CONFIG_RECEIVE_DELAY * 1000;
+            rx_delay = CONFIG_RECEIVE_DELAY / portTICK_PERIOD_MS;
         }
 
         start_tx();
@@ -256,26 +239,29 @@ static void ClassA_event_loop(void *p)
             if (xSemaphoreTake(s_tx_done_mutex, portMAX_DELAY) == 1) break;   
             else vTaskDelay(20 / portTICK_PERIOD_MS);
         }
-        vTaskDelay(time_on_air / portTICK_PERIOD_MS);
         ESP_LOGI(TAG, "Frame was sent");
+        rx_delay = (time_on_air / portTICK_PERIOD_MS + rx_delay) - (xTaskGetTickCount() - offset);
+        if (rx_delay > 0)
+        {
+            vTaskDelay((TickType_t) rx_delay);
+        }
 
         resend = 1;
         start_rx();
-        begin = xTaskGetTickCount();
         ESP_LOGI(TAG, "Open rx window");
+        begin = xTaskGetTickCount();
         while (continue_rx)
         {
             end = (xTaskGetTickCount() - begin) * portTICK_PERIOD_MS;
-            if (end > rx_window || continue_rx == 0)
+            if (end > CONFIG_RX_WINDOW || continue_rx == 0)
             {
                 ESP_LOGI(TAG, "Rx window timeout");
                 continue_rx = 0;
                 break;
             }
 
-            if (xSemaphoreTake(s_rx_done_mutex, (TickType_t) rx_window / portTICK_PERIOD_MS) != 1) 
+            if (xSemaphoreTake(s_rx_done_mutex, 20 / portTICK_PERIOD_MS) != 1) 
             {
-                vTaskDelay(20 / portTICK_PERIOD_MS);
                 continue;
             }
 
@@ -283,6 +269,7 @@ static void ClassA_event_loop(void *p)
             {
                 continue_rx = 0;
                 Frame* rx_frame = Frame_create_by_data(s_lora->fifo.size, s_lora->fifo.buffer);
+                ESP_LOGI(TAG, "Received: ");
                 print_data(rx_frame->data, rx_frame->size);
 
                 switch (rx_frame->type)
