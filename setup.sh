@@ -16,7 +16,7 @@ test_func() {
 run_func() {
     local port=$1
     shift 1
-    $IDF_PY -C $PRJ_DIR -p $port $@ flash monitor
+    $IDF_PY -C $PRJ_DIR -p $port "$@" flash monitor
 }
 
 alias clean="$IDF_PY -C $PRJ_DIR fullclean && $IDF_PY -C $TEST_DIR fullclean"

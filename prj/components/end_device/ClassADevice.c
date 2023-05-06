@@ -424,6 +424,7 @@ void ClassADevice_connect()
         ESP_LOGE(TAG, "Required to call initialize first");
         ESP_ERROR_CHECK(ESP_FAIL);
     }
+    vTaskResume(s_event_loop_handle);
 
     Frame* removed_frame;
     while (uxQueueMessagesWaiting(s_tx_frame_queue) > 0)
@@ -455,6 +456,7 @@ void ClassADevice_send_data_confirmed(uint8_t* data, uint8_t len, uint8_t fport)
         ESP_LOGE(TAG, "Required to call initialize first");
         ESP_ERROR_CHECK(ESP_FAIL);
     }
+    vTaskResume(s_event_loop_handle);
 
     MacFrame* tx_frame = LoraDevice_confirmed_uplink(s_device, fport, len, data);
     s_data_buffer.fport = fport;
@@ -484,6 +486,7 @@ void ClassADevice_send_data_unconfirmed(uint8_t* data, uint8_t len, uint8_t fpor
         ESP_LOGE(TAG, "Required to call initialize first");
         ESP_ERROR_CHECK(ESP_FAIL);
     }
+    vTaskResume(s_event_loop_handle);
 
     MacFrame* tx_frame = LoraDevice_unconfirmed_uplink(s_device, fport, len, data);
     xQueueSendToFront(s_tx_frame_queue, &tx_frame->_frame, (TickType_t)0);
@@ -500,6 +503,12 @@ void ClassADevice_send_data_unconfirmed(uint8_t* data, uint8_t len, uint8_t fpor
     }
 
     ESP_LOGI(TAG, "Data have sent to network server");
+}
+
+
+void ClassADevice_suspend_tasks()
+{
+    vTaskSuspend(s_event_loop_handle);
 }
 
 void ClassADevice_register_event()

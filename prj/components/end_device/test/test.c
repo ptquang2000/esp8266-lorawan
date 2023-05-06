@@ -13,7 +13,6 @@ uint16_t join_nonce = 0;
 void app_main(void)
 {
     LoraDevice* device = LoraDevice_create(app_key, join_eui, dev_eui, dev_nonce);
-
     ClassADevice_intialize(device);
     ClassADevice_register_event();
 
@@ -24,17 +23,20 @@ void app_main(void)
 
 TEST_CASE("Class A connect", "[Class A]")
 {
+    ClassADevice_suspend_tasks();
     ClassADevice_connect();
 }
 
 TEST_CASE("Class A unconfirmed uplink", "[Class A]")
 {
+    ClassADevice_suspend_tasks();
     const static uint8_t data[] = {'u','n','c','o','n','f','i','r','m','e','d',' ','m','s','g'};
     ClassADevice_send_data_unconfirmed(data, sizeof(data), 10);
 }
 
 TEST_CASE("Class A confirmed uplink", "[Class A]")
 {
+    ClassADevice_suspend_tasks();
     const static uint8_t data[] = {'c','o','n','f','i','r','m','e','d',' ','m','s','g'};
     ClassADevice_send_data_confirmed(data, sizeof(data), 10);
 }
