@@ -4,12 +4,12 @@
 #include "stdint.h"
 #include "string.h"
 
-#define DISABLE_DUTY_CYCLE
+// #define DISABLE_DUTY_CYCLE
 
 #define STRINGTIFY(x)                       #x
 #define GATEWAY_ID_STR(x)                   STRINGTIFY(x) 
 
-#define GATEWAY_ID                          3
+#define GATEWAY_ID                          1
 
 #define CONFIG_MQTT_USERNAME               "gateway" GATEWAY_ID_STR(GATEWAY_ID)
 #define CONFIG_MQTT_PASSWORD               "123456?aD"

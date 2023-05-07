@@ -4,7 +4,7 @@
 #include "stdint.h"
 #include "LoraDevice.h"
 
-#define DISABLE_DUTY_CYCLE
+// #define DISABLE_DUTY_CYCLE
 
 #define CONFIG_JOIN_ACCEPT_DELAY    5000 // ms
 #define CONFIG_ADR_ACK_LIMIT        64
