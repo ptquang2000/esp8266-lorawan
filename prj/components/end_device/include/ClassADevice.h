@@ -4,7 +4,7 @@
 #include "stdint.h"
 #include "LoraDevice.h"
 
-// #define DISABLE_DUTY_CYCLE
+#define DISABLE_DUTY_CYCLE
 
 #define CONFIG_JOIN_ACCEPT_DELAY    5000 // ms
 #define CONFIG_ADR_ACK_LIMIT        64
@@ -29,6 +29,8 @@ void ClassADevice_connect();
 void ClassADevice_send_data_confirmed(uint8_t* data, uint8_t len, uint8_t fport);
 void ClassADevice_send_data_unconfirmed(uint8_t* data, uint8_t len, uint8_t fport);
 void ClassADevice_suspend_tasks();
+void ClassADevice_wait_connect();
+void ClassADevice_wait_uplink();
 void ClassADevice_register_event();
 void ClassADevice_intialize(LoraDevice* device);
 SX1278* ClassADevice_get_lora();

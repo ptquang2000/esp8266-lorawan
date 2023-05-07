@@ -4,7 +4,7 @@
 #include "stdint.h"
 #include "string.h"
 
-// #define DISABLE_DUTY_CYCLE
+#define DISABLE_DUTY_CYCLE
 
 #define STRINGTIFY(x)                       #x
 #define GATEWAY_ID_STR(x)                   STRINGTIFY(x) 

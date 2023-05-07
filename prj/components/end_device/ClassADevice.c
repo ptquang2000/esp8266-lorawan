@@ -17,13 +17,16 @@ static const char *TAG = "CLASS A";
 static uint16_t s_frame_counter = 0; // for tracking downlink frame counter (aka Du increasment)
 static uint16_t s_nb_trans = CONFIG_NB_TRANS; // for tracking retransmission (prevent Cu from increasment)
 
+// Buffer is used only if reconnection is required.
 typedef struct DataBuffer_struct
 {
     uint8_t fport;
     uint8_t buffer[256];
     uint8_t len;
+    uint8_t mic[MIC_SIZE];
 } DataBuffer;
-static DataBuffer s_data_buffer;
+static DataBuffer s_buffer[CONFIG_MAX_FRAME_QUEUE];
+static uint16_t s_buffer_size = 0;
 
 static SX1278Settings s_settings = {
     .channel_freq = DEFAULT_SX1278_FREQUENCY,
@@ -90,12 +93,6 @@ static int process_join_accept(JoinAcceptFrame* frame)
         memcpy(s_device->dev_addr, frame->payload->dev_addr, DEV_ADDR_SIZE);
         s_frame_counter = 0;
         s_nb_trans = CONFIG_NB_TRANS;
-
-        if (uxSemaphoreGetCount(s_downlink_mutex) == 0 && s_data_buffer.len > 0)
-        {
-            MacFrame* mc_frame = LoraDevice_confirmed_uplink(s_device, s_data_buffer.fport, s_data_buffer.len, s_data_buffer.buffer);
-            xQueueSend(s_tx_frame_queue, &mc_frame->_frame, (TickType_t)0);
-        }
     }
     ESP_LOGI(TAG, "Processed join accept result %d", result);
     return result;
@@ -255,7 +252,7 @@ static void ClassA_event_loop(void *p)
             end = (xTaskGetTickCount() - begin) * portTICK_PERIOD_MS;
             if (end > CONFIG_RX_WINDOW || continue_rx == 0)
             {
-                ESP_LOGI(TAG, "Rx window timeout");
+                ESP_LOGW(TAG, "Rx window timeout");
                 continue_rx = 0;
                 break;
             }
@@ -398,10 +395,23 @@ static void ClassA_event_loop(void *p)
         }
         else
         {
+            if (s_buffer_size > 0 && memcmp(s_buffer[0].mic, tx_frame->mic, MIC_SIZE) == 0)
+            {
+                s_buffer_size--;
+                memmove(s_buffer, &s_buffer[1], s_buffer_size * sizeof(DataBuffer));
+            }
+            if (s_buffer_size > 0 && uxQueueMessagesWaiting(s_tx_frame_queue) == 0)
+            {
+                MacFrame* mc_frame = LoraDevice_confirmed_uplink(s_device, s_buffer[0].fport, s_buffer[0].len, s_buffer[0].buffer);
+                memcpy(s_buffer[0].mic, mc_frame->_frame->mic, MIC_SIZE);
+                xQueueSend(s_tx_frame_queue, &mc_frame->_frame, (TickType_t)0);
+            }
+
             free_frame(tx_frame);
             s_nb_trans = CONFIG_NB_TRANS;
         }
 
+        ESP_LOGI(TAG, "Frame left %d", uxQueueMessagesWaiting(s_tx_frame_queue));
 #ifdef DISABLE_DUTY_CYCLE
         offset = 0.;
 #else
@@ -412,9 +422,34 @@ static void ClassA_event_loop(void *p)
             ESP_LOGI(TAG, "Tx in off duty for approximate %d ms", (int) offset * portTICK_PERIOD_MS);
             vTaskDelay(offset);
         }
-        ESP_LOGI(TAG, "Frame left %d", uxQueueMessagesWaiting(s_tx_frame_queue));
         ESP_LOGI(TAG, "Ready for new tx requests");
     }
+}
+
+void ClassADevice_wait_connect()
+{
+    if (uxSemaphoreGetCount(s_joinaccept_mutex) == 1)
+    {
+        xSemaphoreTake(s_joinaccept_mutex, portMAX_DELAY);
+    }
+    while (1)
+    {
+        if (xSemaphoreTake(s_joinaccept_mutex, (TickType_t) 200 / portTICK_PERIOD_MS) == 1) break;
+    }
+    ESP_LOGI(TAG, "Device has connected to network server");
+}
+
+void ClassADevice_wait_uplink()
+{
+    if (uxSemaphoreGetCount(s_downlink_mutex) == 1)
+    {
+        xSemaphoreTake(s_downlink_mutex, portMAX_DELAY);
+    }
+    while (1)
+    {
+        if (xSemaphoreTake(s_downlink_mutex, (TickType_t) 200 / portTICK_PERIOD_MS) == 1) break;
+    }
+    ESP_LOGI(TAG, "Data have sent to network server");
 }
 
 void ClassADevice_connect()
@@ -432,21 +467,10 @@ void ClassADevice_connect()
         xQueueReceive(s_tx_frame_queue, (void*)&removed_frame, (TickType_t) CONFIG_READING_TICKS);
         free_frame(removed_frame);
     }
+    s_buffer_size = 0;
 
     JoinRequestFrame* tx_frame = LoraDevice_join_request(s_device);
     xQueueSendToFront(s_tx_frame_queue, &tx_frame->_frame, (TickType_t)0);
-    
-    if (uxSemaphoreGetCount(s_joinaccept_mutex) == 1)
-    {
-        xSemaphoreTake(s_joinaccept_mutex, portMAX_DELAY);
-    }
-
-    while (1)
-    {
-        if (xSemaphoreTake(s_joinaccept_mutex, (TickType_t) 200 / portTICK_PERIOD_MS) == 1) break;
-    }
-
-    ESP_LOGI(TAG, "Device has connected to network server");
 }
 
 void ClassADevice_send_data_confirmed(uint8_t* data, uint8_t len, uint8_t fport)
@@ -459,24 +483,21 @@ void ClassADevice_send_data_confirmed(uint8_t* data, uint8_t len, uint8_t fport)
     vTaskResume(s_event_loop_handle);
 
     MacFrame* tx_frame = LoraDevice_confirmed_uplink(s_device, fport, len, data);
-    s_data_buffer.fport = fport;
-    s_data_buffer.len = len;
-    memcpy(s_data_buffer.buffer, data, len);
-    xQueueSendToFront(s_tx_frame_queue, &tx_frame->_frame, (TickType_t)0);
 
-    if (uxSemaphoreGetCount(s_downlink_mutex) == 1)
+    if (s_buffer_size == CONFIG_MAX_FRAME_QUEUE)
     {
-        xSemaphoreTake(s_downlink_mutex, portMAX_DELAY);
-    }
-
-    while (1)
+        memmove(s_buffer, &s_buffer[1], (CONFIG_MAX_FRAME_QUEUE - 1) * sizeof(DataBuffer));
+    } 
+    else
     {
-        if (xSemaphoreTake(s_downlink_mutex, (TickType_t) 200 / portTICK_PERIOD_MS) == 1) break;
-        vTaskDelay(20 / portTICK_PERIOD_MS);
+        s_buffer_size++;
     }
-    s_data_buffer.len = 0;
+    s_buffer[s_buffer_size - 1].fport = fport;
+    s_buffer[s_buffer_size - 1].len = len;
+    memcpy(s_buffer[s_buffer_size - 1].buffer, data, len);
+    memcpy(s_buffer[s_buffer_size - 1].mic, tx_frame->_frame->mic, MIC_SIZE);
 
-    ESP_LOGI(TAG, "Data have sent to network server");
+    xQueueSend(s_tx_frame_queue, &tx_frame->_frame, (TickType_t)0);
 }
 
 void ClassADevice_send_data_unconfirmed(uint8_t* data, uint8_t len, uint8_t fport)
@@ -489,20 +510,7 @@ void ClassADevice_send_data_unconfirmed(uint8_t* data, uint8_t len, uint8_t fpor
     vTaskResume(s_event_loop_handle);
 
     MacFrame* tx_frame = LoraDevice_unconfirmed_uplink(s_device, fport, len, data);
-    xQueueSendToFront(s_tx_frame_queue, &tx_frame->_frame, (TickType_t)0);
-
-    if (uxSemaphoreGetCount(s_downlink_mutex) == 1)
-    {
-        xSemaphoreTake(s_downlink_mutex, portMAX_DELAY);
-    }
-
-    while (1)
-    {
-        if (xSemaphoreTake(s_downlink_mutex, (TickType_t) 200 / portTICK_PERIOD_MS) == 1) break;
-        vTaskDelay(20 / portTICK_PERIOD_MS);
-    }
-
-    ESP_LOGI(TAG, "Data have sent to network server");
+    xQueueSend(s_tx_frame_queue, &tx_frame->_frame, (TickType_t)0);
 }
 
 

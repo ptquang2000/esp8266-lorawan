@@ -1,4 +1,5 @@
 #include "unity.h"
+#include "test_utils.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "ClassADevice.h"
@@ -25,18 +26,53 @@ TEST_CASE("Class A connect", "[Class A]")
 {
     ClassADevice_suspend_tasks();
     ClassADevice_connect();
+    ClassADevice_wait_connect();
 }
 
 TEST_CASE("Class A unconfirmed uplink", "[Class A]")
 {
     ClassADevice_suspend_tasks();
-    const static uint8_t data[] = {'u','n','c','o','n','f','i','r','m','e','d',' ','m','s','g'};
+    const static uint8_t data[] = {'u','n','c','o','n','f','i','r','m','e','d'};
     ClassADevice_send_data_unconfirmed(data, sizeof(data), 10);
+    ClassADevice_wait_uplink();
+}
+
+TEST_CASE("Class A unconfirmed uplink without wait", "[Class A]")
+{
+    ClassADevice_suspend_tasks();
+    const static uint8_t data1[] = {'u','n','c','o','n','f','i','r','m','e','d', ' ', '1'};
+    ClassADevice_send_data_unconfirmed(data1, sizeof(data1), 10);
+    const static uint8_t data2[] = {'u','n','c','o','n','f','i','r','m','e','d', ' ', '2'};
+    ClassADevice_send_data_unconfirmed(data2, sizeof(data2), 10);
+
+    int num = 0;
+    while (num < 2)
+    {
+        ClassADevice_wait_uplink();
+        num++;
+    }
 }
 
 TEST_CASE("Class A confirmed uplink", "[Class A]")
 {
     ClassADevice_suspend_tasks();
-    const static uint8_t data[] = {'c','o','n','f','i','r','m','e','d',' ','m','s','g'};
+    const static uint8_t data[] = {'c','o','n','f','i','r','m','e','d'};
     ClassADevice_send_data_confirmed(data, sizeof(data), 10);
+    ClassADevice_wait_uplink();
+}
+
+TEST_CASE("Class A confirmed uplink without wait", "[Class A]")
+{
+    ClassADevice_suspend_tasks();
+    const static uint8_t data1[] = {'c','o','n','f','i','r','m','e','d', ' ', '1'};
+    ClassADevice_send_data_confirmed(data1, sizeof(data1), 10);
+    const static uint8_t data2[] = {'c','o','n','f','i','r','m','e','d', ' ', '2'};
+    ClassADevice_send_data_confirmed(data2, sizeof(data2), 10);
+
+    int num = 0;
+    while (num < 2)
+    {
+        ClassADevice_wait_uplink();
+        num++;
+    }
 }
