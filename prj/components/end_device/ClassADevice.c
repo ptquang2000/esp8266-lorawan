@@ -1,6 +1,9 @@
 #include "ClassADevice.h"
+
 #include "string.h"
+
 #include "esp_system.h"
+#include "esp_spiffs.h"
 #include "esp_log.h"
 
 #include "SX1278.h"
@@ -14,6 +17,7 @@
 
 
 static const char *TAG = "CLASS A";
+static const char *s_lorawan_cfg_fpath = "/spiffs/lorawan.txt";
 static uint16_t s_frame_counter = 0; // for tracking downlink frame counter (aka Du increasment)
 static uint16_t s_nb_trans = CONFIG_NB_TRANS; // for tracking retransmission (prevent Cu from increasment)
 
@@ -64,6 +68,17 @@ static void print_data(uint8_t* data, uint8_t data_len)
     printf("]\n");
 }
 
+static void ClassADevice_save_config(uint16_t dev_nonce)
+{
+    // FILE* f = fopen(s_lorawan_cfg_fpath, "wb");
+    // if (f == NULL) {
+    //     ESP_LOGE(TAG, "Failed to open file for writing");
+    //     ESP_ERROR_CHECK(ESP_FAIL);
+    // }
+    // fwrite(&dev_nonce, sizeof(uint16_t), 1, f);
+    // fclose(f);
+}
+
 static int process_join_accept(JoinAcceptFrame* frame)
 {
     int result = frame->_iframe->validate(frame->instance, s_device->app_key);
@@ -93,6 +108,10 @@ static int process_join_accept(JoinAcceptFrame* frame)
         memcpy(s_device->dev_addr, frame->payload->dev_addr, DEV_ADDR_SIZE);
         s_frame_counter = 0;
         s_nb_trans = CONFIG_NB_TRANS;
+
+        ESP_LOGI(TAG, "Received new JoinNonce: %d", (uint16_t)frame->payload->join_nonce[1] << 8 | frame->payload->join_nonce[0]);
+        ESP_LOGI(TAG, "Received new DevAddr: [%02x %02x %02x %02x]", s_device->dev_addr[3], s_device->dev_addr[2], s_device->dev_addr[1], s_device->dev_addr[0]);
+        ClassADevice_save_config((uint16_t)s_device->dev_nonce[1] << 8 | s_device->dev_nonce[0]);
     }
     ESP_LOGI(TAG, "Processed join accept result %d", result);
     return result;
@@ -530,6 +549,7 @@ void ClassADevice_register_event()
 
     xSemaphoreTake(s_tx_done_mutex, portMAX_DELAY);
     xSemaphoreTake(s_rx_done_mutex, portMAX_DELAY);
+
     xTaskCreate(ClassA_event_loop, "classA_event_loop", 1024, NULL, tskIDLE_PRIORITY, &s_event_loop_handle);
 }
 
@@ -542,6 +562,47 @@ void ClassADevice_intialize(LoraDevice* device)
     s_settings.modem_config2.bits.spreading_factor = SF11;
     SX1278_initialize(s_lora, &s_settings);
 
+    // esp_vfs_spiffs_conf_t conf = {
+    //     .base_path = "/spiffs",
+    //     .partition_label = NULL,
+    //     .max_files = 5,
+    //     .format_if_mount_failed = true
+    // };
+    // esp_err_t ret = esp_vfs_spiffs_register(&conf);
+    // if (ret != ESP_OK) {
+    //     if (ret == ESP_FAIL) {
+    //         ESP_LOGE(TAG, "Failed to mount or format filesystem");
+    //     } else if (ret == ESP_ERR_NOT_FOUND) {
+    //         ESP_LOGE(TAG, "Failed to find SPIFFS partition");
+    //     } else {
+    //         ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
+    //     }
+    //     ESP_ERROR_CHECK(ret);
+    // }
+
+    // size_t total = 0, used = 0;
+    // ret = esp_spiffs_info(NULL, &total, &used);
+    // if (ret != ESP_OK) {
+    //     ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
+    //     ESP_ERROR_CHECK(ret);
+    // } else {
+    //     ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
+    // }
+
+    // FILE* f = fopen(s_lorawan_cfg_fpath, "rb");
+    // if (f == NULL) 
+    // {
+    //     ClassADevice_save_config(0);
+    // }
+    // else
+    // {
+    //     uint16_t dev_nonce;
+    //     fread(&dev_nonce, sizeof(uint16_t), 1, f);
+    //     fclose(f);
+    //     ESP_LOGI(TAG, "Using last DevNonce value: '%hu'", dev_nonce);
+    //     LoraDevice_set_dev_nonce(device, dev_nonce);
+    // }
+    
     s_device = device;
 }
 

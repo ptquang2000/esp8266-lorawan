@@ -39,6 +39,7 @@ MacFrame* LoraDevice_unconfirmed_uplink(
 	uint8_t* data);
 JoinRequestFrame* LoraDevice_join_request(LoraDevice* device);
 void LoraDevice_incr_dev_nonce(LoraDevice* device);
+void LoraDevice_set_dev_nonce(LoraDevice* device, uint16_t dev_nonce);
 LoraDevice* LoraDevice_create(
 	uint8_t* app_key, 
 	uint8_t* join_eui, 
